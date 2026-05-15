@@ -36,7 +36,7 @@ function updateSummary(data) {
       else pillRetAge.classList.add('bad');
       const years = age ? (age - cfg.currentAge) : null;
       retAgeDetail.textContent = age
-        ? `Earliest age where success ≈ ${formatPct(p)} (target ${formatPct(cfg.targetSuccess)}); about ${years} years from now.`
+        ? `Earliest age where success ≈ ${formatPct(p)} (target ${formatPct(cfg.targetSuccess)}); about ${years} years from now. Return case: ${getReturnPresetLabel()}. Derived real returns: ${formatPct(cfg.expPre)} pre-ret, ${formatPct(cfg.expPost)} post-ret.`
         : 'Could not find a retirement age that reaches the target success probability.';
 
       const rs = data.retireStats;

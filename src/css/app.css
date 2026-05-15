@@ -117,6 +117,12 @@ select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
 }
+input:disabled,
+input[readonly] {
+  color: var(--muted);
+  border-color: rgba(55,65,81,0.7);
+  background: rgba(2,6,23,0.72);
+}
 input[type="range"] { padding: 0; cursor: pointer; }
 .btn-row {
   margin-top: 10px;
