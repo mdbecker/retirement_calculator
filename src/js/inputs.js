@@ -19,7 +19,7 @@ function getConfigFromUI() {
         const v = parseFloat(document.getElementById(id).value);
         return isNaN(v) ? def : v;
       };
-      const currentAge = getNum('currentAge', 42);
+      const currentAge = getNum('currentAge', 30);
       const maxAge     = getNum('maxAge', 110);
       const maxRetAge  = getNum('maxRetAge', 65);
 
