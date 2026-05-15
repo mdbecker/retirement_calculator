@@ -66,10 +66,24 @@ There are no build flags or modes.
 
 ## Test Instructions
 
+The test suite uses Python `unittest` and is designed to run in the same venv as the build. It rebuilds the generated HTML and checks the parts that can be validated reliably without browser automation.
+
 ```bash
 source .venv/bin/activate
 python -m unittest discover -s tests -v
 ```
+
+The tests cover:
+
+- deterministic build output
+- market data validation, including expected failure cases
+- single-file HTML constraints, including no local runtime assets
+- preserved visible markup, inputs, buttons, canvases, and expected default values
+- embedded market data JSON
+- configured app/worker JavaScript bundle order
+- worker simulation equivalence against the original one-file app using a seeded random stream
+
+The worker equivalence test uses `node` if it is available on `PATH`; otherwise it is skipped. Browser interaction checks are intentionally left to the manual QA checklist because local `file://` and `localhost` browser automation may be blocked in some sandboxed environments.
 
 ## Manual QA Checklist
 
