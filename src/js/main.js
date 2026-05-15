@@ -1,6 +1,9 @@
 function createSimulationWorker() {
   const blob = new Blob([SIM_WORKER_SOURCE], { type: 'application/javascript' });
-  return new Worker(URL.createObjectURL(blob));
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+  URL.revokeObjectURL(url);
+  return worker;
 }
 
 const simWorker = createSimulationWorker();
