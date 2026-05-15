@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Retirement Planner – Monte Carlo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.18);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --good: #4ade80;
+      --bad: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0f172a 0, #020617 55%);
+      color: var(--text);
+    }
+    .app {
+      max-width: 2000px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    header {
+      margin-bottom: 18px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+      letter-spacing: -0.03em;
+    }
+    header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.85fr);
+      gap: 18px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    .card {
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.95), rgba(15,23,42,1));
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,0.16);
+      padding: 18px 18px 16px;
+      box-shadow: 0 20px 45px rgba(15,23,42,0.9);
+    }
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: rgba(8,47,73,0.7);
+      white-space: nowrap;
+    }
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      margin-top: 8px;
+    }
+    @media (max-width: 700px) {
+      .inputs-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    label .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+    }
+    label strong {
+      font-weight: 500;
+      color: var(--text);
+      font-size: 0.8rem;
+    }
+    label small {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    input[type="number"],
+    input[type="range"],
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(55,65,81,0.96);
+      background: radial-gradient(circle at top, #020617, #020617);
+      color: var(--text);
+      font-size: 0.8rem;
+      outline: none;
+      transition: border 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+    input[type="number"]:focus,
+    input[type="range"]:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
+    }
+    input[type="range"] { padding: 0; cursor: pointer; }
+    .btn-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.1s ease, background 0.12s ease, color 0.12s ease;
+    }
+    button.primary {
+      background: linear-gradient(135deg, #0ea5e9, #22c55e);
+      color: #020617;
+      box-shadow: 0 12px 26px rgba(34,197,94,0.35);
+    }
+    button.primary:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+    button.primary:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 32px rgba(34,197,94,0.45);
+    }
+    .status-text {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      animation: pulse 1s infinite alternate;
+    }
+    @keyframes pulse {
+      from { opacity: 0.5; transform: scale(0.9); }
+      to   { opacity: 1;   transform: scale(1.1); }
+    }
+    .advanced-toggle {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .advanced-panel {
+      margin-top: 8px;
+      padding: 8px 10px 10px;
+      border-radius: 12px;
+      border: 1px dashed rgba(148,163,184,0.45);
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), rgba(15,23,42,1));
+      display: none;
+    }
+    .advanced-panel.open { display: block; }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 1100px) {
+      .summary-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 700px) {
+      .summary-row { grid-template-columns: minmax(0,1fr); }
+    }
+    .pill {
+      padding: 9px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.35);
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), rgba(15,23,42,1));
+      font-size: 0.8rem;
+    }
+    .pill h3 {
+      margin: 0 0 2px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .pill .value {
+      font-size: 0.96rem;
+      font-weight: 600;
+    }
+    .pill small {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .pill.good {
+      border-color: rgba(74,222,128,0.6);
+      background: radial-gradient(circle at top left, rgba(22,163,74,0.14), rgba(15,23,42,1));
+    }
+    .pill.bad {
+      border-color: rgba(248,113,113,0.65);
+      background: radial-gradient(circle at top left, rgba(248,113,113,0.16), rgba(15,23,42,1));
+    }
+    .chart-tabs {
+      display: inline-flex;
+      gap: 6px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.94);
+      border: 1px solid rgba(30,64,175,0.6);
+      margin-bottom: 8px;
+    }
+    .chart-tab {
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.76rem;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .chart-tab.active {
+      background: rgba(37,99,235,0.9);
+      color: #e5e7eb;
+    }
+    .chart-panel {
+      display: none;
+      border-radius: 14px;
+      border: 1px solid rgba(30,64,175,0.55);
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.93), rgba(15,23,42,1));
+      padding: 8px 10px 6px;
+      margin-bottom: 10px;
+    }
+    .chart-panel.active { display: block; }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    canvas {
+      width: 100% !important;
+      height: 270px !important;
+    }
+    .small-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .dual-charts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 900px) {
+      .dual-charts { grid-template-columns: minmax(0,1fr); }
+    }
+    .table-wrap {
+      margin-top: 4px;
+      max-height: 280px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(51,65,85,0.9);
+      background: rgba(15,23,42,0.9);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.74rem;
+    }
+    thead {
+      position: sticky;
+      top: 0;
+      background: rgba(15,23,42,0.98);
+      backdrop-filter: blur(10px);
+      z-index: 1;
+    }
+    th, td {
+      padding: 4px 8px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child {
+      text-align: left;
+    }
+    th {
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(51,65,85,0.9);
+    }
+    tr:nth-child(even) td {
+      background: rgba(15,23,42,0.7);
+    }
+    tr:hover td {
+      background: rgba(15,23,42,0.97);
+    }
+    .footer-note {
+      margin-top: 6px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Retirement Planner – Monte Carlo</h1>
+      <p>Combined accumulation + decumulation simulator using Shiller/FRED returns, pre/post-retirement portfolios, and health/LTC shocks, with retirement age solved from your inputs.</p>
+    </header>
+
+    <div class="layout">
+      <!-- LEFT: INPUTS -->
+      <section class="card">
+        <div class="card-title">
+          <span>Plan inputs</span>
+          <span class="badge">Monte Carlo (accumulation + decumulation)</span>
+        </div>
+
+        <div class="inputs-grid">
+          <label>
+            <span class="title"><strong>Current age</strong></span>
+            <input id="currentAge" type="number" value="42" min="18" max="80" />
+          </label>
+          <label>
+            <span class="title"><strong>Current retirement savings</strong><small>(2025 $)</small></span>
+            <input id="currentSavings" type="number" value="150000" step="10000" />
+          </label>
+          <label>
+            <span class="title"><strong>Household income</strong><small>(2025 $ / yr)</small></span>
+            <input id="income" type="number" value="180000" step="1000" />
+          </label>
+          <label>
+            <span class="title"><strong>Annual savings rate</strong><small>% of income</small></span>
+            <input id="savingsRate" type="number" value="20" step="0.5" />
+          </label>
+          <label>
+            <span class="title"><strong>Income growth</strong><small>% real / yr</small></span>
+            <input id="incomeGrowth" type="number" value="1.5" step="0.1" />
+          </label>
+          <label>
+            <span class="title">
+              <strong>Income needed in retirement</strong>
+              <small><span id="retSpendPreview">–</span></small>
+            </span>
+            <input id="replaceRate" type="number" value="70" step="0.5" />
+          </label>
+          <label>
+            <span class="title"><strong>Planning horizon</strong><small>max age</small></span>
+            <input id="maxAge" type="number" value="110" min="80" max="120" />
+          </label>
+          <label>
+            <span class="title"><strong>Target success probability</strong></span>
+            <input id="targetSuccess" type="number" value="0.95" min="0.5" max="0.99" step="0.01" />
+          </label>
+          <label>
+            <span class="title"><strong>Simulations</strong><small><span id="simsLabel">40000</span> paths</small></span>
+            <input id="sims" type="range" min="1000" max="100000" value="40000" step="1000" />
+          </label>
+          <label>
+            <span class="title"><strong>Max retirement age to consider</strong></span>
+            <input id="maxRetAge" type="number" value="65" min="40" max="90" />
+          </label>
+        </div>
+
+        <div class="advanced-toggle" id="advancedToggle">
+          Advanced portfolio, health & return assumptions <span id="advancedChevron">▾</span>
+        </div>
+        <div class="advanced-panel" id="advancedPanel">
+          <div class="inputs-grid">
+            <label>
+              <span class="title"><strong>Pre-retirement equity weight</strong><small>0–1</small></span>
+              <input id="eqPre" type="number" value="0.85" min="0" max="1" step="0.05" />
+            </label>
+            <label>
+              <span class="title"><strong>Post-retirement equity weight</strong><small>0–1</small></span>
+              <input id="eqPost" type="number" value="0.6" min="0" max="1" step="0.05" />
+            </label>
+            <label>
+              <span class="title"><strong>Expected pre-ret return</strong><small>% real / yr</small></span>
+              <input id="expPre" type="number" value="16.5" step="0.1" />
+            </label>
+            <label>
+              <span class="title"><strong>Expected post-ret return</strong><small>% real / yr</small></span>
+              <input id="expPost" type="number" value="6" step="0.1" />
+            </label>
+            <label>
+              <span class="title"><strong>Max catastrophic health shocks</strong><small>0 = none</small></span>
+              <input id="healthShocks" type="number" value="3" min="0" max="15" step="1" />
+            </label>
+            <label>
+              <span class="title"><strong>LTC duration</strong><small>years (0 = none)</small></span>
+              <input id="ltcYears" type="number" value="3" min="0" max="10" step="1" />
+            </label>
+          </div>
+          <p class="hint">
+            Health shocks use age-varying probabilities with lognormal costs. LTC is an optional multi-year episode (75–95) with about 30% lifetime probability.
+            Both health shocks and LTC costs grow faster than general spending in real terms.
+          </p>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" id="runBtn">Run simulation</button>
+          <div class="status-text" id="statusText">
+            <span class="dot" style="display:none;"></span>
+            <span>Ready</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: SUMMARY + CHARTS + TABLE -->
+      <section class="card">
+        <div class="card-title">
+          <span>Plan outcomes</span>
+          <span class="badge">Earliest sustainable retirement age</span>
+        </div>
+
+        <div class="summary-row">
+          <div class="pill" id="pillRetAge">
+            <h3>Earliest retirement age</h3>
+            <div class="value" id="retAgeLabel">–</div>
+            <small id="retAgeDetail">Run the simulation to estimate when the plan first hits your success threshold.</small>
+          </div>
+          <div class="pill" id="pillRetWealth">
+            <h3>Wealth at retirement</h3>
+            <div class="value" id="retWealthLabel">–</div>
+            <small id="retWealthDetail">Median and downside wealth at retirement in 2025 dollars.</small>
+          </div>
+          <div class="pill" id="pillFinalWealth">
+            <h3>Wealth at horizon</h3>
+            <div class="value" id="finalWealthLabel">–</div>
+            <small id="finalWealthDetail">Portfolio at the planning horizon, including health & LTC shocks.</small>
+          </div>
+          <div class="pill" id="pillFailure">
+            <h3>Failure ages</h3>
+            <div class="value" id="failureLabel">–</div>
+            <small id="failureDetail">Ages when the portfolio hits zero (conditional on failure).</small>
+          </div>
+        </div>
+
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-target="fanPanel">Wealth fan chart</button>
+          <button class="chart-tab" data-target="successPanel">Success vs retirement age</button>
+          <button class="chart-tab" data-target="distPanel">Distributions & failure ages</button>
+        </div>
+
+        <!-- FAN CHART -->
+        <div class="chart-panel active" id="fanPanel">
+          <div class="chart-header">
+            <span>Portfolio value by age (accumulation + decumulation)</span>
+            <span>Shaded bands: 5–95% and 25–75% percentiles.</span>
+          </div>
+          <canvas id="fanChart"></canvas>
+          <div class="small-label">Values in thousands of 2025 dollars; starting at your current age and current savings.</div>
+        </div>
+
+        <!-- SUCCESS VS AGE -->
+        <div class="chart-panel" id="successPanel">
+          <div class="chart-header">
+            <span>Probability of not running out of money vs retirement age</span>
+            <span>Same income, savings, spending and health assumptions; retirement age varies.</span>
+          </div>
+          <canvas id="successChart"></canvas>
+          <div class="small-label">The line shows Monte Carlo success probability; the dashed line is your target.</div>
+        </div>
+
+        <!-- DISTRIBUTIONS & FAILURE AGES -->
+        <div class="chart-panel" id="distPanel">
+          <div class="chart-header">
+            <span>Wealth distributions</span>
+            <span>Retirement and planning-horizon wealth across all simulations.</span>
+          </div>
+          <div class="dual-charts">
+            <div>
+              <canvas id="retWealthChart"></canvas>
+              <div class="small-label">Distribution of wealth at the chosen retirement age.</div>
+            </div>
+            <div>
+              <canvas id="finalWealthChart"></canvas>
+              <div class="small-label">Distribution of wealth at the end of the planning horizon.</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="chart-header" style="margin-bottom:2px;">
+              <span>Failure age distribution (conditional on failure)</span>
+              <span>Shows when the portfolio first hits zero in simulations that fail.</span>
+            </div>
+            <canvas id="failureAgeChart"></canvas>
+          </div>
+        </div>
+
+        <!-- MEDIAN PROJECTION TABLE FROM SIMULATION -->
+        <div class="card-title" style="margin-top:8px; padding-top:4px; border-top:1px solid rgba(30,64,175,0.4);">
+          <span>Projection table (median across simulations)</span>
+          <span class="badge">Monte Carlo median</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Age</th>
+                <th>Beginning balance</th>
+                <th>Investment growth</th>
+                <th>Contributions<br/>@ savings rate</th>
+                <th>Retire with % of income</th>
+                <th>Retirement withdrawals</th>
+                <th>Ending balance</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <p class="footer-note">
+          Table uses the median portfolio balances from the Monte Carlo simulations at each age.
+          Contributions and base retirement withdrawals follow your inputs and ignore random health/LTC shocks;
+          the charts above show the full distribution including those shocks.
+        </p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    //  PRECOMPUTED SHILLER/FRED DATA (PLACEHOLDER STRING)
+    // =========================================================================
+    // TODO: REPLACE PLACEHOLDER_DATA_JSON BELOW WITH THE FULL JSON STRING
+    //       GENERATED BY YOUR PYTHON PREPROCESSING (annual Shiller/FRED data).
+    //
+    // Expected structure:
+    // {
+    //   "year": [...],
+    //   "real_stock": [...],
+    //   "real_bond": [...],
+    //   "cpi_infl": [...]
+    // }
+    // const PLACEHOLDER_DATA_JSON = `{
+    //   "year": [2000, 2001, 2002, 2003],
+    //   "real_stock": [0.05, -0.10, 0.02, 0.12],
+    //   "real_bond": [0.02, 0.03, 0.01, 0.015],
+    //   "cpi_infl": [0.02, 0.018, 0.025, 0.022]
+    // }`;
+    const PLACEHOLDER_DATA_JSON = `{"year": [1871, 1872, 1873, 1874, 1875, 1876, 1877, 1878, 1879, 1880, 1881, 1882, 1883, 1884, 1885, 1886, 1887, 1888, 1889, 1890, 1891, 1892, 1893, 1894, 1895, 1896, 1897, 1898, 1899, 1900, 1901, 1902, 1903, 1904, 1905, 1906, 1907, 1908, 1909, 1910, 1911, 1912, 1913, 1914, 1915, 1916, 1917, 1918, 1919, 1920, 1921, 1922, 1923, 1924, 1925, 1926, 1927, 1928, 1929, 1930, 1931, 1932, 1933, 1934, 1935, 1936, 1937, 1938, 1939, 1940, 1941, 1942, 1943, 1944, 1945, 1946, 1947, 1948, 1949, 1950, 1951, 1952, 1953, 1954, 1955, 1956, 1957, 1958, 1959, 1960, 1961, 1962, 1963, 1964, 1965, 1966, 1967, 1968, 1969, 1970, 1971, 1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023], "real_stock": [0.10595996932020513, 0.10575998311898771, -0.010115880294479962, 0.16812200382657339, 0.08681118539083843, -0.10209689177043024, 0.10828253060123494, 0.303460341037616, 0.26021801705793135, 0.2665231944337456, 0.007760854907507664, 0.04530473109696431, 0.0485311611031749, -0.03067151109403632, 0.2874155729308052, 0.18733094394011007, -0.08114382012911203, 0.021297249615490177, 0.14608559509093366, -0.1098125357962817, 0.29077806379106663, 0.04926426805098516, -0.088624524214587, 0.10051626522474066, 0.020621286607918288, 0.03578387855428811, 0.17219297275952838, 0.2172081694169099, -0.05795266487129613, 0.23584349030450924, 0.14685480943813078, -0.017574878535661975, -0.09404544081679833, 0.25704207781945265, 0.19847894663601107, 0.015316745156832567, -0.27945653448024343, 0.40460906507961636, 0.07796334267420235, -0.0012917876402138706, 0.08139098231548836, 0.00860573517839125, -0.12033307114094316, -0.0422389465718469, 0.3315713852378668, -0.032385630400730614, -0.3665243112763754, 0.04793947714526059, 0.049413958390719825, -0.20606674802460168, 0.29148955073827243, 0.30295151356935635, 0.011024868772690377, 0.261617119514842, 0.24829335690547083, 0.15288501240554142, 0.3892683153379253, 0.39745287689027187, -0.04763047490179806, -0.1881900879884918, -0.3579398626178407, -0.008608350703277923, 0.5329183044851211, -0.042454592682498626, 0.42754571907140626, 0.3381117828703022, -0.33820718479712397, 0.2598389916254682, 0.020101967387001096, -0.10305819311188069, -0.18803969026842504, 0.0745429485837612, 0.23353730625284408, 0.17321257192605355, 0.3510353617392816, -0.23040251869745854, -0.040014397560265036, 0.03767244081014898, 0.1893519011308702, 0.20711245597368522, 0.196207393780508, 0.1703831559379907, 0.0023782617230592162, 0.49164569511180134, 0.3444971032142121, 0.03230584721822716, -0.1220373598883161, 0.3539564473618215, 0.11978055172590474, -0.017713506288873138, 0.29227766205233685, -0.10908780615799774, 0.20212052621998233, 0.154555963535991, 0.1041890509377974, -0.11398704577859187, 0.173720688333882, 0.1000927095430626, -0.16825017246679785, -0.02730898027369677, 0.10058187877785207, 0.1786329992426452, -0.23516973791185902, -0.34212136243129665, 0.29088600387687746, 0.16835319833169682, -0.12189467834583079, -0.010977636009623648, 0.042950527356562906, 0.15742307109023712, -0.10485988492252218, 0.1480770936771838, 0.18671828547866132, 0.007438027622960641, 0.2655046711235751, 0.2277133664614701, -0.04346681734539848, 0.13767963608184597, 0.24428239207943925, -0.07969643473921206, 0.18440124820347936, 0.12249631560589447, 0.07019062526994801, -0.02160292172224243, 0.3499309158787356, 0.19589583415441947, 0.2956577159283236, 0.23501732144416776, 0.18380003256020672, -0.0884188182506408, -0.1415279424165411, -0.22039140552378733, 0.2000750355216352, 0.09259038425989496, 0.03548642234547095, 0.11435356744398018, 0.021427360526542705, -0.3928772782159562, 0.26585891252908445, 0.12335904244117923, -0.00831879121047352, 0.14799861621820498, 0.2779454829250756, 0.14994955745174332, 0.012959228018956326, 0.09463769794240484, 0.18415582979673828, -0.03661596426173375, 0.23335045591680048, 0.16906416965658555, 0.1982797157189553, -0.2014094490815077, 0.08943274085395991], "real_bond": [0.0342822480359084, 0.032338545751795955, 0.12266013837189749, 0.1155298999106833, 0.1042789629893155, 0.06470901695507747, 0.18114157139682363, 0.21339886064304858, -0.12122049977588722, 0.060195081468611855, -0.031012538270245193, 0.05657841390635321, 0.12224282997895863, 0.15524556268862, 0.047730335545160374, 0.08536810457118227, -0.023590134141649344, 0.03628995613288866, 0.09860928454842921, 0.022577442867293795, 0.08910803663306832, 0.025055699301050893, 0.12195447072649479, 0.11064477424324903, 0.006711686254500027, 0.051203333598414336, 0.034302779525955396, 0.017563817486340838, -0.11719162112552739, 0.0710440303551616, -0.01725130893972271, -0.035941172839721314, 0.09405561773784821, -0.011517391635461172, 0.035128201142785365, -0.01848424438154983, 0.06081736063601073, 0.005549189257955778, -0.059822335573580965, 0.12579102316385016, 0.06256258206917376, -0.028023689607267643, 0.012718479534142846, 0.032458778327002724, 0.022093668361039542, -0.07464912911618937, -0.11538618008920132, -0.1312212761048076, -0.08491260327564987, 0.024325075651338013, 0.1755742776715803, 0.06888382014703098, 0.01896039439867314, 0.040413103059244726, 0.003653023498843666, 0.04752931903543778, 0.05777769296834401, 0.04720883281925592, 0.029118532927866037, 0.10426260430879353, 0.14192281908586368, 0.15426794077183303, 0.02489022379304151, 0.014732866811746348, -0.002175786130897972, 0.01230682665185956, -0.0019476519059935526, 0.05424918999702366, 0.023167412202964144, 0.013876362245759832, -0.0702459452654115, -0.059975068402740916, -0.004422265651551349, 0.0015483720251350253, 0.000655244136548383, -0.1345034167346667, -0.05948796703232673, -0.005674914553297605, 0.04507936189954065, -0.0327553406986264, -0.03157976310277666, 0.020150022413079283, 0.02111515542368636, 0.031955315141921625, 0.02469527587075948, 0.002371573292754281, 0.007876898838376833, 0.015782832512544198, 0.026445585251298143, 0.027966055739178097, 0.03259318077513984, 0.02649322194313175, 0.023926543671369593, 0.03265369179145661, 0.023983593698456263, 0.015241082418584906, 0.020898682498558196, 0.010260413395265067, 0.006415750013027743, 0.019234371038360232, 0.02972575092455365, 0.028852182433818374, -0.01512969145520393, -0.040172298180419785, 0.012624746295350597, 0.028779972501476347, 0.009144111117533438, -0.0025307191901638992, -0.030293222851893953, -0.0038684150375327686, 0.05426119299048948, 0.09606429024747576, 0.07608454539727405, 0.08873244227461852, 0.07087982244644264, 0.067862994546249, 0.040975973381452535, 0.04591084488203223, 0.040037797954660226, 0.026264706600160448, 0.04932174862501326, 0.04216646559831583, 0.03197698079243971, 0.045183691641182966, 0.041384788594228894, 0.03202806472424058, 0.04757328975692232, 0.03721096162458304, 0.030188872347861606, 0.02719615055828828, 0.03528014241097588, 0.022783509056037765, 0.0216940614839638, 0.010685235461634246, 0.009279973185399859, 0.022992251973730893, 0.006200546666162099, 0.036350990328976485, 0.005693426480831043, 0.017401090554403753, -0.0013550767347084713, 0.0007467018690092697, 0.008607138006030413, 0.018018074073946844, 0.014139921901222596, -0.0021000693110299062, 0.002416739901279774, 0.010190535634016396, -0.0015335269943379526, -0.0045799876788709115, -0.05218009803098567, -0.03254411991769646, -0.009495754660205025], "cpi_infl": [0.015248796147672827, 0.02292490118577062, -0.058732612055641065, -0.05500821018062363, -0.04952215464813181, -0.01736745886654445, -0.11534883720930222, -0.13985278654048316, 0.1858190709046459, -0.0195876288659792, 0.07045215562565654, -0.018664047151277008, -0.07607607607607592, -0.10292524377031376, -0.012077294685990059, -0.046454767726161306, 0.06153846153846243, 4.440892098500626e-16, -0.057971014492753326, 0.012820512820513219, -0.04810126582278429, 0.011968085106383253, -0.07490144546649102, -0.06676136363636331, 0.028919330289193246, -0.014792899408283211, 4.440892098500626e-16, 0.015015015015015232, 0.1686390532544384, -0.03670886075949309, 0.049934296977661274, 0.07133917396745937, -0.0549065420560747, 0.046971569839307614, 2.220446049250313e-16, 0.05548996458087352, -0.02125279642058142, 0.03314285714285736, 0.10508849557522093, -0.07607607607607558, -0.020585048754062973, 0.07300884955752274, 0.030927835051546726, 0.010000000000000231, 0.019801980198020264, 0.12621359223300943, 0.18103448275862077, 0.20437956204379581, 0.14545454545454528, 0.02645502645502651, -0.10824742268041188, -0.023121387283236428, 0.02366863905325456, 0.0, 0.03468208092485514, -0.011173184357541333, -0.022598870056496856, -0.01156069364161827, 0.005847953216374213, -0.06395348837209258, -0.09316770186335355, -0.1027397260273969, 0.007633587786259888, 0.015151515151515582, 0.029850746268656803, 0.01449275362318847, 0.02857142857142847, -0.0277777777777779, 0.0, 0.0071428571428571175, 0.09929078014184367, 0.09032258064516152, 0.0295857988165682, 0.02298850574712663, 0.022471910112359383, 0.18131868131868134, 0.08837209302325544, 0.029914529914530474, -0.02074688796680424, 0.05932203389830493, 0.05999999999999961, 0.007547169811320753, 0.0074906367041196464, -0.0074349442379181285, 0.003745318352059712, 0.029850746268656803, 0.028985507246377162, 0.01760563380281699, 0.01730103806228378, 0.013605442176870763, 0.006711409395973034, 0.013333333333333197, 0.016447368421052655, 0.009708737864077444, 0.019230769230769162, 0.03459119496855312, 0.030395136778115894, 0.04719764011799388, 0.06197183098591519, 0.05570291777188263, 0.03266331658291444, 0.034063260340632784, 0.08705882352941163, 0.12337662337662292, 0.06936416184971095, 0.04864864864864904, 0.06701030927835028, 0.09017713365539448, 0.13293943870014768, 0.12516297262059917, 0.0892236384704519, 0.03829787234042592, 0.037909836065573854, 0.03948667324777877, 0.037986704653370396, 0.010978956999085465, 0.044343891402715, 0.044194107452339315, 0.04647302904564299, 0.061062648691514454, 0.030642750373691907, 0.029006526468455363, 0.02748414376321362, 0.02674897119341546, 0.025384101536406023, 0.03322475570032579, 0.01702395964691017, 0.016119032858028293, 0.02684563758389258, 0.033868092691622165, 0.015517241379310986, 0.023769100169779955, 0.018794914317302736, 0.03255561584373279, 0.03415659485023603, 0.025406504065040858, 0.04083250743310196, 0.0009045896019808097, 0.02720829567616434, 0.014957166010650003, 0.02961036590929811, 0.017414809234723272, 0.015026132404181602, 0.007552027461918076, 0.0073250713342707385, 0.020716188221367116, 0.02108271548689089, 0.01910595489209843, 0.022847589857899475, 0.01362026695723273, 0.07037278765308908, 0.06456241032998622, 0.027998652291104875], "port_return": [0.0794566529349161, 0.07873355190883018, 0.024716925305433273, 0.14734437265180636, 0.08705151867038155, -0.05705511915277792, 0.12514024283991154, 0.27144189691924575, 0.14078646200778577, 0.19962476054420547, -0.008871163045818196, 0.04368683593978098, 0.06564466176591002, 0.020103611040760583, 0.21051000171511175, 0.15174209212943174, -0.06887771433287322, 0.020795061570709723, 0.1268427019281823, -0.07509554219720904, 0.22527705564366712, 0.03700169742600488, -0.03045082573226245, 0.09855481793029316, 0.011448406501892806, 0.03540971506752598, 0.12582591478945648, 0.15231486383773915, -0.08072435174756551, 0.18140365231970496, 0.09262297392477473, -0.02808476682687978, -0.04261512325040436, 0.1714742369829785, 0.14447372298804334, 0.0001764482953178475, -0.18237436594536718, 0.2798911023331182, 0.03162763919986735, 0.03183305560100534, 0.07074246224159397, -0.007383092257306421, -0.08541760593841735, -0.024829629102192014, 0.2337280701748186, -0.05006468001536824, -0.2961828719202232, -0.010808748829759882, 0.004115989890808907, -0.14194920092181976, 0.2517149688182648, 0.22773120554265872, 0.008405526460485205, 0.19025591457816282, 0.16990125688348265, 0.11627830439451033, 0.28482112862705083, 0.28737966366896706, -0.02960577255289883, -0.1054542802993062, -0.21298105810672938, 0.035254536739255375, 0.3755098802774972, -0.030298354834225133, 0.29362926751071494, 0.23537029600476939, -0.24232932492978485, 0.19316205113693483, 0.016021600831790012, -0.07297782650458853, -0.15770156676752098, 0.029187543487810563, 0.15714943468152542, 0.11671331195577797, 0.24092132645846162, -0.20663278810862096, -0.05085646840188354, 0.019668234201115, 0.14107013936147134, 0.13015211697199172, 0.1228712467155226, 0.12031321588051724, 0.0029993298332473594, 0.3487385811208374, 0.24355655501117632, 0.01832556504058529, -0.08806308227030822, 0.2475043629070383, 0.08678006178352275, -0.009009637680457764, 0.20937231766917774, -0.07341349772765889, 0.1436623314553985, 0.11298528201263067, 0.07512741376599505, -0.08021860731943883, 0.12287408658328483, 0.06814302069872333, -0.12085039572285017, -0.01834597488007967, 0.07432504042186253, 0.12869875419999713, -0.17415772397486248, -0.2565366431560336, 0.20240762660241937, 0.12148123058263066, -0.08758304150682153, -0.013443560963785722, 0.015977402294025844, 0.10403562525190614, -0.062123561548618665, 0.1274732526482714, 0.14852816345424513, 0.026826352018458007, 0.20211721652043535, 0.17475825488690375, -0.023133980127343173, 0.10514899872190184, 0.17800901384200551, -0.0529080923374003, 0.1388773983299395, 0.09339736060362087, 0.05372653192669553, -0.006566937713214808, 0.25236707769338357, 0.14173550332536577, 0.2162323880769032, 0.17067541349829232, 0.13271668449650317, -0.058734327607962065, -0.09348551696828601, -0.15243893114983978, 0.14156074331033378, 0.06301883962041675, 0.02262448759744962, 0.08194517280290539, 0.011859316368428522, -0.2691087976524764, 0.18280926671460843, 0.08657165687514658, -0.011229676867744004, 0.09882304191344626, 0.192143979449362, 0.10537011243840437, 0.008313436183636207, 0.06061636776637442, 0.12463410282810072, -0.027574014293008705, 0.15788526104345893, 0.1119709224559486, 0.11814177159397302, -0.15574985033236433, 0.05475419219971043]}`;
+
+    const annualData = JSON.parse(PLACEHOLDER_DATA_JSON);
+    const HIST_STOCK = annualData.real_stock || [];
+    const HIST_BOND  = annualData.real_bond  || [];
+
+    // =========================================================================
+    //  MAIN THREAD – UI + CHARTS + WORKER MANAGEMENT
+    // =========================================================================
+    const simsInput = document.getElementById('sims');
+    const simsLabel = document.getElementById('simsLabel');
+    simsLabel.textContent = simsInput.value;
+    simsInput.addEventListener('input', () => {
+      simsLabel.textContent = simsInput.value;
+    });
+
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedPanel  = document.getElementById('advancedPanel');
+    const advancedChevron = document.getElementById('advancedChevron');
+    advancedToggle.addEventListener('click', () => {
+      advancedPanel.classList.toggle('open');
+      advancedChevron.textContent = advancedPanel.classList.contains('open') ? '▴' : '▾';
+    });
+
+    const runBtn = document.getElementById('runBtn');
+    const statusText = document.getElementById('statusText');
+    const statusDot  = statusText.querySelector('.dot');
+    const statusMsg  = statusText.querySelector('span:last-child');
+
+    function setStatusRunning() {
+      runBtn.disabled = true;
+      statusDot.style.display = 'inline-block';
+      statusMsg.textContent = 'Running Monte Carlo…';
+    }
+    function setStatusReady() {
+      runBtn.disabled = false;
+      statusDot.style.display = 'none';
+      statusMsg.textContent = 'Ready';
+    }
+
+    const tabs = document.querySelectorAll('.chart-tab');
+    const panels = {
+      fanPanel: document.getElementById('fanPanel'),
+      successPanel: document.getElementById('successPanel'),
+      distPanel: document.getElementById('distPanel')
+    };
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-target');
+        Object.values(panels).forEach(p => p.classList.remove('active'));
+        panels[target].classList.add('active');
+      });
+    });
+
+    const pillRetAge      = document.getElementById('pillRetAge');
+    const retAgeLabel     = document.getElementById('retAgeLabel');
+    const retAgeDetail    = document.getElementById('retAgeDetail');
+
+    const pillRetWealth   = document.getElementById('pillRetWealth');
+    const retWealthLabel  = document.getElementById('retWealthLabel');
+    const retWealthDetail = document.getElementById('retWealthDetail');
+
+    const pillFinalWealth = document.getElementById('pillFinalWealth');
+    const finalWealthLabel = document.getElementById('finalWealthLabel');
+    const finalWealthDetail = document.getElementById('finalWealthDetail');
+
+    const pillFailure     = document.getElementById('pillFailure');
+    const failureLabel    = document.getElementById('failureLabel');
+    const failureDetail   = document.getElementById('failureDetail');
+
+    let fanChart = null;
+    let successChart = null;
+    let retWealthChart = null;
+    let finalWealthHistChart = null;
+    let failureAgeChart = null;
+
+    function formatMoney(n) {
+      if (n == null || isNaN(n)) return '–';
+      return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+    function formatPct(x) {
+      if (x == null || isNaN(x)) return '–';
+      return (x * 100).toFixed(1) + '%';
+    }
+
+    // live preview of retirement spending in dollars (Household income × %)
+    const retSpendPreview = document.getElementById('retSpendPreview');
+    function updateRetSpendPreview() {
+      const income = parseFloat(document.getElementById('income').value) || 0;
+      const replaceRate = parseFloat(document.getElementById('replaceRate').value) || 0;
+      const val = income * replaceRate / 100.0;
+      retSpendPreview.textContent = val > 0 ? ('$' + formatMoney(val) + ' / yr') : '–';
+    }
+    document.getElementById('income').addEventListener('input', updateRetSpendPreview);
+    document.getElementById('replaceRate').addEventListener('input', updateRetSpendPreview);
+    updateRetSpendPreview();
+
+    function getConfigFromUI() {
+      const getNum = (id, def = 0) => {
+        const v = parseFloat(document.getElementById(id).value);
+        return isNaN(v) ? def : v;
+      };
+      const currentAge = getNum('currentAge', 42);
+      const maxAge     = getNum('maxAge', 110);
+      const maxRetAge  = getNum('maxRetAge', 65);
+
+      return {
+        currentAge,
+        currentSavings: getNum('currentSavings', 0),
+        income: getNum('income', 0),
+        savingsRate: getNum('savingsRate', 0) / 100.0,
+        incomeGrowth: getNum('incomeGrowth', 0) / 100.0,
+        replaceRate: getNum('replaceRate', 0) / 100.0,
+        maxAge,
+        sims: getNum('sims', 5000),
+        targetSuccess: getNum('targetSuccess', 0.95),
+        maxRetAgeCandidate: Math.min(maxRetAge, maxAge - 5),
+        eqPre: getNum('eqPre', 0.85),
+        eqPost: getNum('eqPost', 0.6),
+        expPre: getNum('expPre', 16.5) / 100.0,
+        expPost: getNum('expPost', 6) / 100.0,
+        healthShocks: getNum('healthShocks', 3),
+        ltcYears: getNum('ltcYears', 3),
+        // simple real drift for health/LTC costs per year in retirement
+        medInflation: 0.02
+      };
+    }
+
+    // Build projection table from median path (fan.p50)
+    function updateTable(bestAge, fan, baseSpend) {
+      if (!fan || !fan.ages || !fan.ages.length) return;
+      const cfg = getConfigFromUI();
+      const ages = fan.ages;
+      const medWealth = fan.p50;
+
+      const rows = [];
+      const money = n => '$' + formatMoney(n);
+
+      // Income at current age, grows deterministically until retirement
+      let income = cfg.income;
+      const currentAge = cfg.currentAge;
+
+      // We treat row "Age X" as the year from X-1 → X
+      for (let i = 1; i < ages.length; i++) {
+        const age = ages[i];
+        const begin = medWealth[i - 1];
+        const end = medWealth[i];
+
+        let contrib = 0;
+        let spend = 0;
+        let withdraw = 0;
+
+        if (age < bestAge) {
+          // Pre-retirement: contributions from income, no withdrawals
+          contrib = income * cfg.savingsRate;
+          spend = 0;
+          withdraw = 0;
+          // Advance income for next year
+          income *= (1 + cfg.incomeGrowth);
+        } else {
+          // Post-retirement: no contributions, baseSpend as "retire with % of income"
+          contrib = 0;
+          spend = baseSpend;
+          withdraw = spend;
+        }
+
+        // Solve for investment growth: end = begin + growth + contrib - withdraw
+        const growth = end - begin - contrib + withdraw;
+
+        rows.push({
+          age,
+          begin,
+          growth,
+          contrib,
+          spend,
+          withdraw,
+          end
+        });
+      }
+
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.age}</td>
+          <td>${money(r.begin)}</td>
+          <td>${money(r.growth)}</td>
+          <td>${money(r.contrib)}</td>
+          <td>${money(r.spend)}</td>
+          <td>${money(r.withdraw)}</td>
+          <td>${money(r.end)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // =========================================================================
+    //  WEB WORKER: MONTE CARLO ENGINE (with health shocks + LTC drift)
+    // =========================================================================
+    function createSimulationWorker() {
+      const workerSrc = `
+      function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+      function percentile(arr, p) {
+        if (!arr.length) return NaN;
+        const copy = arr.slice().sort((a,b) => a - b);
+        const idx = clamp((copy.length - 1) * p, 0, copy.length - 1);
+        const lo = Math.floor(idx);
+        const hi = Math.ceil(idx);
+        if (lo === hi) return copy[lo];
+        const t = idx - lo;
+        return copy[lo] * (1 - t) + copy[hi] * t;
+      }
+      function makeHistogram(data, bins) {
+        if (!data.length) return { mids: [], counts: [] };
+        const sorted = data.slice().sort((a,b) => a - b);
+        const p99 = percentile(sorted, 0.99);
+        const min = Math.min(sorted[0], 0);
+        const max = p99 <= min ? min + 1 : p99;
+        const width = (max - min) / bins;
+        if (width <= 0) return { mids: [min], counts: [data.length] };
+        const counts = new Array(bins).fill(0);
+        for (let v of data) {
+          let x = v;
+          if (x < min) x = min;
+          if (x > max) x = max;
+          let idx = Math.floor((x - min) / width);
+          if (idx === bins) idx = bins - 1;
+          counts[idx] += 1;
+        }
+        const mids = [];
+        for (let i = 0; i < bins; i++) {
+          mids.push(min + width * (i + 0.5));
+        }
+        return { mids, counts };
+      }
+      function buildPortfolioReturns(histStock, histBond, eqWeight, targetReturn) {
+        const n = Math.min(histStock.length, histBond.length);
+        const port = new Array(n);
+        let mean = 0;
+        for (let i = 0; i < n; i++) {
+          const r = eqWeight * histStock[i] + (1 - eqWeight) * histBond[i];
+          port[i] = r;
+          mean += r;
+        }
+        mean /= n || 1;
+        if (!isFinite(targetReturn)) targetReturn = mean;
+        let scale = 1;
+        if (n > 0) {
+          scale = (1 + targetReturn) / (1 + mean || 1e-9);
+        }
+        const scaled = new Array(n);
+        for (let i = 0; i < n; i++) {
+          scaled[i] = (1 + port[i]) * scale - 1;
+        }
+        return scaled;
+      }
+      function drawReturn(port) {
+        const n = port.length;
+        if (!n) return 0;
+        const idx = Math.floor(Math.random() * n);
+        return port[idx];
+      }
+      function computeBaseSpend(ageRet, config) {
+        let income = config.income;
+        for (let age = config.currentAge + 1; age < ageRet; age++) {
+          income *= (1 + config.incomeGrowth);
+        }
+        const finalIncome = income;
+        return finalIncome * config.replaceRate;
+      }
+
+      // --- Health shock & LTC helpers (lognormal costs, age-dependent probs) ---
+      const CATA_MU = 150000;
+      const CATA_SIG = 50000;
+      const LTC_COST = 110000;
+      const LTC_PROB = 0.30; // lifetime probability of an LTC episode
+
+      function lognormalParams(mean, sd) {
+        const var2 = sd * sd;
+        const phi = Math.sqrt(var2 + mean * mean);
+        const sigma2 = Math.log((phi * phi) / (mean * mean));
+        const mu = Math.log(mean) - 0.5 * sigma2;
+        return { mu, sigma: Math.sqrt(sigma2) };
+      }
+      const CATA_LN = lognormalParams(CATA_MU, CATA_SIG);
+
+      let _spare = null;
+      function randStdNormal() {
+        if (_spare !== null) {
+          const v = _spare;
+          _spare = null;
+          return v;
+        }
+        let u = 0, v = 0, s = 0;
+        while (s === 0 || s >= 1) {
+          u = Math.random() * 2 - 1;
+          v = Math.random() * 2 - 1;
+          s = u*u + v*v;
+        }
+        const mul = Math.sqrt(-2 * Math.log(s) / s);
+        _spare = v * mul;
+        return u * mul;
+      }
+      function sampleHealthShock() {
+        const z = randStdNormal();
+        return Math.exp(CATA_LN.mu + CATA_LN.sigma * z);
+      }
+      function cataProbForAge(age) {
+        if (age < 60) return 0.0;
+        else if (age < 70) return 0.05;
+        else if (age < 80) return 0.10;
+        else return 0.15;
+      }
+      function randInt(lo, hi) {
+        return lo + Math.floor(Math.random() * (hi - lo + 1));
+      }
+
+      function simulateForRetAge(ageRet, config, portPre, portPost, trackDetails) {
+        const sims = config.sims;
+        const currentAge = config.currentAge;
+        const maxAge = config.maxAge;
+        const totalYears = maxAge - currentAge;
+
+        const success = new Array(sims);
+        const wealthPaths = trackDetails ? new Array(sims) : null;
+        const retireWealth = trackDetails ? new Array(sims) : null;
+        const finalWealth = trackDetails ? new Array(sims) : null;
+        const failureAges = trackDetails ? new Array(sims) : null;
+
+        const baseSpend = computeBaseSpend(ageRet, config);
+        const maxShocksCfg = Math.max(0, Math.round(config.healthShocks || 0));
+        const ltcYearsCfg = Math.max(0, Math.round(config.ltcYears || 0));
+        const medInfl = config.medInflation || 0;
+
+        for (let s = 0; s < sims; s++) {
+          let cap = config.currentSavings;
+          let income = config.income;
+
+          if (trackDetails) {
+            wealthPaths[s] = new Float64Array(totalYears + 1);
+            wealthPaths[s][0] = cap;
+            failureAges[s] = NaN;
+          }
+
+          let remainingShocks = maxShocksCfg;
+          let ltcOnsetAge = Infinity;
+          if (ltcYearsCfg > 0) {
+            const hasLTC = Math.random() < LTC_PROB;
+            if (hasLTC) {
+              const maxA = Math.min(config.maxAge, 95);
+              ltcOnsetAge = randInt(75, maxA);
+            }
+          }
+
+          // Health/LTC real drift multiplier (starts at 1.0)
+          let healthIndex = 1.0;
+
+          // Accumulation phase
+          for (let age = currentAge + 1; age < ageRet; age++) {
+            const r = drawReturn(portPre);
+            const contrib = income * config.savingsRate;
+            cap = cap * (1 + r) + contrib;
+            income = income * (1 + config.incomeGrowth);
+
+            if (trackDetails) {
+              const idx = age - currentAge;
+              wealthPaths[s][idx] = cap;
+            }
+          }
+
+          // Decumulation phase with health/LTC drift
+          for (let age = ageRet; age <= maxAge; age++) {
+            const r = drawReturn(portPost);
+
+            // Health/LTC costs grow in real terms
+            healthIndex *= (1 + medInfl);
+
+            let extraCost = 0;
+            if (ltcYearsCfg > 0 && age >= ltcOnsetAge && age < ltcOnsetAge + ltcYearsCfg) {
+              extraCost += LTC_COST * healthIndex;
+            }
+            if (remainingShocks > 0) {
+              const pShock = cataProbForAge(age);
+              if (pShock > 0 && Math.random() < pShock) {
+                extraCost += sampleHealthShock() * healthIndex;
+                remainingShocks -= 1;
+              }
+            }
+
+            const spend = baseSpend + extraCost;
+            cap = cap * (1 + r) - spend;
+            if (cap < 0) {
+              if (trackDetails && !Number.isFinite(failureAges[s])) {
+                failureAges[s] = age;
+              }
+              cap = -1;
+            }
+
+            if (trackDetails) {
+              const idx = age - currentAge;
+              wealthPaths[s][idx] = cap;
+            }
+          }
+
+          success[s] = cap >= 0;
+          if (trackDetails) {
+            const idxRet = ageRet - currentAge;
+            retireWealth[s] = wealthPaths[s][idxRet];
+            finalWealth[s] = wealthPaths[s][totalYears];
+          }
+        }
+
+        let successes = 0;
+        for (let s = 0; s < sims; s++) if (success[s]) successes++;
+        const p = sims ? successes / sims : 0;
+
+        if (!trackDetails) {
+          return { successProb: p };
+        }
+
+        const ages = [];
+        const p50 = [];
+        const p5  = [];
+        const p25 = [];
+        const p75 = [];
+        const p95 = [];
+        for (let t = 0; t <= totalYears; t++) {
+          const age = currentAge + t;
+          const vals = new Array(sims);
+          for (let s = 0; s < sims; s++) {
+            vals[s] = wealthPaths[s][t];
+          }
+          ages.push(age);
+          p50.push(percentile(vals, 0.50));
+          p5.push(percentile(vals, 0.05));
+          p25.push(percentile(vals, 0.25));
+          p75.push(percentile(vals, 0.75));
+          p95.push(percentile(vals, 0.95));
+        }
+
+        return {
+          successProb: p,
+          fan: { ages, p50, p5, p25, p75, p95 },
+          retireWealth,
+          finalWealth,
+          failureAges,
+          baseSpend
+        };
+      }
+
+      self.onmessage = function(e) {
+        const msg = e.data;
+        if (!msg || msg.type !== 'runSimulation') return;
+        const config = msg.config;
+        const histStock = msg.histStock;
+        const histBond  = msg.histBond;
+
+        const portPre  = buildPortfolioReturns(histStock, histBond, config.eqPre,  config.expPre);
+        const portPost = buildPortfolioReturns(histStock, histBond, config.eqPost, config.expPost);
+
+        const minRetAge = config.currentAge + 1;
+        const maxRetAge = Math.min(config.maxRetAgeCandidate, config.maxAge - 1);
+
+        const ages = [];
+        const probs = [];
+        let bestAge = null;
+
+        for (let age = minRetAge; age <= maxRetAge; age++) {
+          const res = simulateForRetAge(age, config, portPre, portPost, false);
+          ages.push(age);
+          probs.push(res.successProb);
+          if (bestAge === null && res.successProb >= config.targetSuccess) {
+            bestAge = age;
+          }
+        }
+        if (bestAge === null) bestAge = maxRetAge;
+
+        const detailed = simulateForRetAge(bestAge, config, portPre, portPost, true);
+
+        const retW = detailed.retireWealth;
+        const finW = detailed.finalWealth;
+        const retP5  = percentile(retW, 0.05);
+        const retP50 = percentile(retW, 0.50);
+        const retP95 = percentile(retW, 0.95);
+        const finP5  = percentile(finW, 0.05);
+        const finP50 = percentile(finW, 0.50);
+        const finP95 = percentile(finW, 0.95);
+
+        const retHist = makeHistogram(retW, 20);
+        const finHist = makeHistogram(finW, 20);
+
+        const failureAll = [];
+        if (detailed.failureAges) {
+          for (let i = 0; i < detailed.failureAges.length; i++) {
+            const v = detailed.failureAges[i];
+            if (Number.isFinite(v)) failureAll.push(v);
+          }
+        }
+        let failureStats = {
+          p5: NaN, p50: NaN, p95: NaN,
+          histBins: [], histCounts: []
+        };
+        if (failureAll.length > 0) {
+          const fP5  = percentile(failureAll, 0.05);
+          const fP50 = percentile(failureAll, 0.50);
+          const fP95 = percentile(failureAll, 0.95);
+          const fHist = makeHistogram(failureAll, 15);
+          failureStats = {
+            p5: fP5,
+            p50: fP50,
+            p95: fP95,
+            histBins: fHist.mids,
+            histCounts: fHist.counts
+          };
+        }
+
+        self.postMessage({
+          type: 'simulationResult',
+          bestRetAge: bestAge,
+          bestRetSuccess: detailed.successProb,
+          successCurve: { ages, probs },
+          fan: detailed.fan,
+          retireStats: {
+            p5: retP5,
+            p50: retP50,
+            p95: retP95,
+            histBins: retHist.mids,
+            histCounts: retHist.counts
+          },
+          finalStats: {
+            p5: finP5,
+            p50: finP50,
+            p95: finP95,
+            histBins: finHist.mids,
+            histCounts: finHist.counts
+          },
+          failureStats,
+          baseSpend: detailed.baseSpend
+        });
+      };
+      `;
+      const blob = new Blob([workerSrc], { type: 'application/javascript' });
+      return new Worker(URL.createObjectURL(blob));
+    }
+
+    const simWorker = createSimulationWorker();
+
+    simWorker.onmessage = function(e) {
+      const data = e.data;
+      if (!data || data.type !== 'simulationResult') return;
+      setStatusReady();
+      updateSummary(data);
+      updateFanChart(data.fan);
+      updateSuccessChart(data.successCurve, data.bestRetAge, data.bestRetSuccess);
+      updateDistributions(data.retireStats, data.finalStats, data.failureStats);
+      updateTable(data.bestRetAge, data.fan, data.baseSpend);
+    };
+
+    function runSimulation() {
+      if (!HIST_STOCK.length || !HIST_BOND.length) {
+        alert("No historical Shiller/FRED data found in PLACEHOLDER_DATA_JSON.\nReplace it with your preprocessed JSON.");
+        return;
+      }
+      const config = getConfigFromUI();
+      setStatusRunning();
+      simWorker.postMessage({
+        type: 'runSimulation',
+        config,
+        histStock: HIST_STOCK,
+        histBond: HIST_BOND
+      });
+    }
+    runBtn.addEventListener('click', runSimulation);
+
+    // =========================================================================
+    //  UPDATE UI HELPERS
+    // =========================================================================
+    function updateSummary(data) {
+      const cfg = getConfigFromUI();
+      const age = data.bestRetAge;
+      const p   = data.bestRetSuccess;
+      const baseSpend = data.baseSpend;
+
+      retAgeLabel.textContent = age ? age.toString() : '–';
+      pillRetAge.classList.remove('good', 'bad');
+      if (p >= cfg.targetSuccess) pillRetAge.classList.add('good');
+      else pillRetAge.classList.add('bad');
+      const years = age ? (age - cfg.currentAge) : null;
+      retAgeDetail.textContent = age
+        ? `Earliest age where success ≈ ${formatPct(p)} (target ${formatPct(cfg.targetSuccess)}); about ${years} years from now.`
+        : 'Could not find a retirement age that reaches the target success probability.';
+
+      const rs = data.retireStats;
+      retWealthLabel.textContent = '$' + formatMoney(rs.p50);
+      const spendStr = baseSpend ? '$' + formatMoney(baseSpend) + ' / yr' : '–';
+      retWealthDetail.textContent =
+        `5–95% band at retirement: $${formatMoney(rs.p5)} – $${formatMoney(rs.p95)}. ` +
+        `Target retirement income (before health/LTC shocks): ${spendStr}.`;
+
+      const fs = data.finalStats;
+      finalWealthLabel.textContent = '$' + formatMoney(fs.p50);
+      pillFinalWealth.classList.remove('good', 'bad');
+      if (fs.p50 >= 0) pillFinalWealth.classList.add('good'); else pillFinalWealth.classList.add('bad');
+      finalWealthDetail.textContent =
+        `5–95% band at horizon: $${formatMoney(fs.p5)} – $${formatMoney(fs.p95)} (negative values mean the portfolio was exhausted early, often due to health/LTC costs).`;
+
+      const fail = data.failureStats || {};
+      const hasFailures = fail.histBins && fail.histBins.length > 0;
+      pillFailure.classList.remove('good', 'bad');
+      if (hasFailures) pillFailure.classList.add('bad'); else pillFailure.classList.add('good');
+      if (hasFailures) {
+        failureLabel.textContent = `${fail.p50 ? fail.p50.toFixed(1) : '–'}`;
+        failureDetail.textContent =
+          `Failure ages (5–95%): ${fail.p5 ? fail.p5.toFixed(1) : '–'} – ${fail.p95 ? fail.p95.toFixed(1) : '–'} (conditional on failure).`;
+      } else {
+        failureLabel.textContent = 'No failures';
+        failureDetail.textContent = 'In this run, no simulations depleted the portfolio before the planning horizon.';
+      }
+    }
+
+    function updateFanChart(fan) {
+      if (!fan || !fan.ages || !fan.ages.length) return;
+      const ages = fan.ages;
+      const p50 = fan.p50.map(v => v / 1000.0);
+      const p5  = fan.p5.map(v => v / 1000.0);
+      const p25 = fan.p25.map(v => v / 1000.0);
+      const p75 = fan.p75.map(v => v / 1000.0);
+      const p95 = fan.p95.map(v => v / 1000.0);
+      const ctx = document.getElementById('fanChart').getContext('2d');
+      if (!fanChart) {
+        fanChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ages,
+            datasets: [
+              {
+                label: 'Median',
+                data: p50,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56,189,248,0.2)',
+                borderWidth: 2.4,
+                pointRadius: 0,
+                tension: 0.22,
+                fill: true
+              },
+              {
+                label: '5–95%',
+                data: p95,
+                borderWidth: 0,
+                backgroundColor: 'rgba(56,189,248,0.14)',
+                pointRadius: 0,
+                tension: 0.22,
+                fill: '-1'
+              },
+              {
+                label: '25–75%',
+                data: p75,
+                borderWidth: 0,
+                backgroundColor: 'rgba(56,189,248,0.26)',
+                pointRadius: 0,
+                tension: 0.22,
+                fill: '-1'
+              },
+              {
+                label: '5th',
+                data: p5,
+                borderWidth: 0,
+                pointRadius: 0,
+                tension: 0.22,
+                fill: false
+              },
+              {
+                label: '25th',
+                data: p25,
+                borderWidth: 0,
+                pointRadius: 0,
+                tension: 0.22,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: ctx => {
+                    const label = ctx.dataset.label || '';
+                    const val = ctx.parsed.y * 1000;
+                    return `${label}: $${formatMoney(val)}`;
+                  }
+                }
+              }
+            },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                title: { display: true, text: 'Age' },
+                grid: { color: 'rgba(30,64,175,0.25)' }
+              },
+              y: {
+                title: { display: true, text: 'Thousands of 2025 dollars' },
+                grid: { color: 'rgba(30,64,175,0.3)' },
+                ticks: { callback: v => v.toLocaleString('en-US') }
+              }
+            }
+          }
+        });
+      } else {
+        fanChart.data.labels = ages;
+        fanChart.data.datasets[0].data = p50;
+        fanChart.data.datasets[1].data = p95;
+        fanChart.data.datasets[2].data = p75;
+        fanChart.data.datasets[3].data = p5;
+        fanChart.data.datasets[4].data = p25;
+        fanChart.update();
+      }
+    }
+
+    function updateSuccessChart(curve, bestAge, bestProb) {
+      const ages = curve.ages || [];
+      const probs = curve.probs || [];
+      const ctx = document.getElementById('successChart').getContext('2d');
+      const cfg = getConfigFromUI();
+      if (!successChart) {
+        successChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ages,
+            datasets: [
+              {
+                label: 'Success probability',
+                data: probs.map(p => p * 100),
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56,189,248,0.2)',
+                pointRadius: 3,
+                tension: 0.22,
+                fill: true
+              },
+              {
+                label: 'Target',
+                data: ages.map(() => cfg.targetSuccess * 100),
+                borderColor: 'rgba(248,250,252,0.4)',
+                borderDash: [4,4],
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => `Success: ${ctx.parsed.y.toFixed(1)}%`
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: 'Retirement age' },
+                grid: { color: 'rgba(30,64,175,0.24)' }
+              },
+              y: {
+                title: { display: true, text: 'Success probability (%)' },
+                min: 0,
+                max: 100,
+                grid: { color: 'rgba(30,64,175,0.28)' }
+              }
+            }
+          }
+        });
+      } else {
+        successChart.data.labels = ages;
+        successChart.data.datasets[0].data = probs.map(p => p * 100);
+        successChart.data.datasets[1].data = ages.map(() => cfg.targetSuccess * 100);
+        successChart.update();
+      }
+    }
+
+    function updateDistributions(retireStats, finalStats, failureStats) {
+      const rBins = retireStats.histBins || [];
+      const rCounts = retireStats.histCounts || [];
+      const fBins = finalStats.histBins || [];
+      const fCounts = finalStats.histCounts || [];
+      const fbins = failureStats && failureStats.histBins ? failureStats.histBins : [];
+      const fcounts = failureStats && failureStats.histCounts ? failureStats.histCounts : [];
+
+      const ctxR = document.getElementById('retWealthChart').getContext('2d');
+      if (!retWealthChart) {
+        retWealthChart = new Chart(ctxR, {
+          type: 'bar',
+          data: {
+            labels: rBins.map(v => Math.round(v / 1000.0)),
+            datasets: [{
+              label: 'Retirement wealth',
+              data: rCounts,
+              backgroundColor: 'rgba(56,189,248,0.6)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: ctx => {
+                    if (!ctx.length) return '';
+                    const v = ctx[0].label * 1000;
+                    return 'Wealth ≈ $' + formatMoney(v);
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: 'Wealth at retirement (thousands of 2025 $)' },
+                grid: { color: 'rgba(30,64,175,0.24)' }
+              },
+              y: {
+                title: { display: true, text: 'Number of simulations' },
+                grid: { color: 'rgba(30,64,175,0.28)' }
+              }
+            }
+          }
+        });
+      } else {
+        retWealthChart.data.labels = rBins.map(v => Math.round(v / 1000.0));
+        retWealthChart.data.datasets[0].data = rCounts;
+        retWealthChart.update();
+      }
+
+      const ctxF = document.getElementById('finalWealthChart').getContext('2d');
+      if (!finalWealthHistChart) {
+        finalWealthHistChart = new Chart(ctxF, {
+          type: 'bar',
+          data: {
+            labels: fBins.map(v => Math.round(v / 1000.0)),
+            datasets: [{
+              label: 'Final wealth',
+              data: fCounts,
+              backgroundColor: 'rgba(248,113,113,0.7)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: ctx => {
+                    if (!ctx.length) return '';
+                    const v = ctx[0].label * 1000;
+                    return 'Wealth ≈ $' + formatMoney(v);
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: 'Wealth at horizon (thousands of 2025 $)' },
+                grid: { color: 'rgba(30,64,175,0.24)' }
+              },
+              y: {
+                title: { display: true, text: 'Number of simulations' },
+                grid: { color: 'rgba(30,64,175,0.28)' }
+              }
+            }
+          }
+        });
+      } else {
+        finalWealthHistChart.data.labels = fBins.map(v => Math.round(v / 1000.0));
+        finalWealthHistChart.data.datasets[0].data = fCounts;
+        finalWealthHistChart.update();
+      }
+
+      const ctxFail = document.getElementById('failureAgeChart').getContext('2d');
+      if (!failureAgeChart) {
+        failureAgeChart = new Chart(ctxFail, {
+          type: 'bar',
+          data: {
+            labels: fbins.map(v => Math.round(v)),
+            datasets: [{
+              label: 'Failure ages',
+              data: fcounts,
+              backgroundColor: 'rgba(248,113,113,0.8)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: ctx => {
+                    if (!ctx.length) return '';
+                    const v = ctx[0].label;
+                    return 'Failure age ≈ ' + v;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: 'Age at first portfolio depletion' },
+                grid: { color: 'rgba(30,64,175,0.24)' }
+              },
+              y: {
+                title: { display: true, text: 'Number of failing simulations' },
+                grid: { color: 'rgba(30,64,175,0.28)' }
+              }
+            }
+          }
+        });
+      } else {
+        failureAgeChart.data.labels = fbins.map(v => Math.round(v));
+        failureAgeChart.data.datasets[0].data = fcounts;
+        failureAgeChart.update();
+      }
+    }
+
+    // Optional: auto-run once with placeholder data
+    if (HIST_STOCK.length && HIST_BOND.length) {
+      setTimeout(runSimulation, 300);
+    }
+  </script>
+</body>
+</html>
