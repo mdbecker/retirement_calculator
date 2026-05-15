@@ -1,0 +1,50 @@
+<div class="chart-tabs">
+          <button class="chart-tab active" data-target="fanPanel">Wealth fan chart</button>
+          <button class="chart-tab" data-target="successPanel">Success vs retirement age</button>
+          <button class="chart-tab" data-target="distPanel">Distributions & failure ages</button>
+        </div>
+
+        <!-- FAN CHART -->
+        <div class="chart-panel active" id="fanPanel">
+          <div class="chart-header">
+            <span>Portfolio value by age (accumulation + decumulation)</span>
+            <span>Shaded bands: 5–95% and 25–75% percentiles.</span>
+          </div>
+          <canvas id="fanChart"></canvas>
+          <div class="small-label">Values in thousands of 2025 dollars; starting at your current age and current savings.</div>
+        </div>
+
+        <!-- SUCCESS VS AGE -->
+        <div class="chart-panel" id="successPanel">
+          <div class="chart-header">
+            <span>Probability of not running out of money vs retirement age</span>
+            <span>Same income, savings, spending and health assumptions; retirement age varies.</span>
+          </div>
+          <canvas id="successChart"></canvas>
+          <div class="small-label">The line shows Monte Carlo success probability; the dashed line is your target.</div>
+        </div>
+
+        <!-- DISTRIBUTIONS & FAILURE AGES -->
+        <div class="chart-panel" id="distPanel">
+          <div class="chart-header">
+            <span>Wealth distributions</span>
+            <span>Retirement and planning-horizon wealth across all simulations.</span>
+          </div>
+          <div class="dual-charts">
+            <div>
+              <canvas id="retWealthChart"></canvas>
+              <div class="small-label">Distribution of wealth at the chosen retirement age.</div>
+            </div>
+            <div>
+              <canvas id="finalWealthChart"></canvas>
+              <div class="small-label">Distribution of wealth at the end of the planning horizon.</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="chart-header" style="margin-bottom:2px;">
+              <span>Failure age distribution (conditional on failure)</span>
+              <span>Shows when the portfolio first hits zero in simulations that fail.</span>
+            </div>
+            <canvas id="failureAgeChart"></canvas>
+          </div>
+        </div>

@@ -1,0 +1,34 @@
+<!-- RIGHT: SUMMARY + CHARTS + TABLE -->
+      <section class="card">
+        <div class="card-title">
+          <span>Plan outcomes</span>
+          <span class="badge">Earliest sustainable retirement age</span>
+        </div>
+
+        <div class="summary-row">
+          <div class="pill" id="pillRetAge">
+            <h3>Earliest retirement age</h3>
+            <div class="value" id="retAgeLabel">–</div>
+            <small id="retAgeDetail">Run the simulation to estimate when the plan first hits your success threshold.</small>
+          </div>
+          <div class="pill" id="pillRetWealth">
+            <h3>Wealth at retirement</h3>
+            <div class="value" id="retWealthLabel">–</div>
+            <small id="retWealthDetail">Median and downside wealth at retirement in 2025 dollars.</small>
+          </div>
+          <div class="pill" id="pillFinalWealth">
+            <h3>Wealth at horizon</h3>
+            <div class="value" id="finalWealthLabel">–</div>
+            <small id="finalWealthDetail">Portfolio at the planning horizon, including health & LTC shocks.</small>
+          </div>
+          <div class="pill" id="pillFailure">
+            <h3>Failure ages</h3>
+            <div class="value" id="failureLabel">–</div>
+            <small id="failureDetail">Ages when the portfolio hits zero (conditional on failure).</small>
+          </div>
+        </div>
+
+        {% include "partials/charts.html.j2" %}
+
+        {% include "partials/projection_table.html.j2" %}
+</section>
