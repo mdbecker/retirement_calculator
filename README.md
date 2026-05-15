@@ -64,6 +64,13 @@ Do not edit `dist/retirement-calculator.html` directly. It is generated and will
 
 There are no build flags or modes.
 
+## Test Instructions
+
+```bash
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+```
+
 ## Manual QA Checklist
 
 After a refactor or model change:
