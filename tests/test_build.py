@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -24,7 +25,7 @@ def load_build_module():
 
 
 def run_build():
-    subprocess.run(["python", "build.py"], cwd=ROOT, check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, "build.py"], cwd=ROOT, check=True, capture_output=True, text=True)
 
 
 class AppHtmlParser(html.parser.HTMLParser):
@@ -33,6 +34,8 @@ class AppHtmlParser(html.parser.HTMLParser):
         self.skip_depth = 0
         self.text = []
         self.inputs = []
+        self.selects = []
+        self.options = []
         self.buttons = []
         self.canvases = []
         self.links = []
@@ -58,8 +61,14 @@ class AppHtmlParser(html.parser.HTMLParser):
                     attrs.get("min"),
                     attrs.get("max"),
                     attrs.get("step"),
+                    "disabled" in attrs,
+                    "readonly" in attrs,
                 )
             )
+        elif tag == "select":
+            self.selects.append((attrs.get("id"),))
+        elif tag == "option":
+            self.options.append((attrs.get("value"), "selected" in attrs))
         elif tag == "button":
             self.buttons.append((attrs.get("id"), attrs.get("class"), attrs.get("data-target")))
         elif tag == "canvas":
@@ -145,9 +154,10 @@ class BuildTests(unittest.TestCase):
         self.assertIn("new Blob([SIM_WORKER_SOURCE]", self.new_html)
 
     def test_generated_html_preserves_markup_and_defaults(self):
-        old_input_shapes = {item[0]: item[:2] + item[3:] for item in self.old.inputs}
         new_input_shapes = {item[0]: item[:2] + item[3:] for item in self.new.inputs}
         new_defaults = {item[0]: item[2] for item in self.new.inputs}
+        disabled = {item[0] for item in self.new.inputs if item[6]}
+        readonly = {item[0] for item in self.new.inputs if item[7]}
         expected_defaults = {
             "currentAge": "30",
             "currentSavings": "150000",
@@ -161,17 +171,136 @@ class BuildTests(unittest.TestCase):
             "maxRetAge": "65",
             "eqPre": "0.85",
             "eqPost": "0.6",
-            "expPre": "16.5",
-            "expPost": "6",
+            "stockReturn": "5.5",
+            "bondReturn": "1.0",
+            "expPre": "4.8",
+            "expPost": "3.7",
             "healthShocks": "3",
             "ltcYears": "3",
         }
+        expected_shapes = {
+            "currentAge": ("currentAge", "number", "18", "80", None, False, False),
+            "currentSavings": ("currentSavings", "number", None, None, "10000", False, False),
+            "income": ("income", "number", None, None, "1000", False, False),
+            "savingsRate": ("savingsRate", "number", None, None, "0.5", False, False),
+            "incomeGrowth": ("incomeGrowth", "number", None, None, "0.1", False, False),
+            "replaceRate": ("replaceRate", "number", None, None, "0.5", False, False),
+            "maxAge": ("maxAge", "number", "80", "120", None, False, False),
+            "targetSuccess": ("targetSuccess", "number", "0.5", "0.99", "0.01", False, False),
+            "sims": ("sims", "range", "1000", "100000", "1000", False, False),
+            "maxRetAge": ("maxRetAge", "number", "40", "90", None, False, False),
+            "eqPre": ("eqPre", "number", "0", "1", "0.05", False, False),
+            "eqPost": ("eqPost", "number", "0", "1", "0.05", False, False),
+            "stockReturn": ("stockReturn", "number", "-10", "20", "0.1", True, False),
+            "bondReturn": ("bondReturn", "number", "-10", "10", "0.1", True, False),
+            "expPre": ("expPre", "number", None, None, "0.1", False, True),
+            "expPost": ("expPost", "number", None, None, "0.1", False, True),
+            "healthShocks": ("healthShocks", "number", "0", "15", "1", False, False),
+            "ltcYears": ("ltcYears", "number", "0", "10", "1", False, False),
+        }
 
-        self.assertEqual(self.old.text, self.new.text)
         self.assertEqual(self.old.buttons, self.new.buttons)
         self.assertEqual(sorted(self.old.canvases), sorted(self.new.canvases))
-        self.assertEqual(old_input_shapes, new_input_shapes)
+        self.assertEqual(new_input_shapes, expected_shapes)
         self.assertEqual(new_defaults, expected_defaults)
+        self.assertEqual(disabled, {"stockReturn", "bondReturn"})
+        self.assertEqual(readonly, {"expPre", "expPost"})
+        self.assertIn(("returnPreset",), self.new.selects)
+        self.assertEqual(
+            self.new.options[:4],
+            [
+                ("conservative", False),
+                ("base", True),
+                ("aggressive", False),
+                ("custom", False),
+            ],
+        )
+        self.assertIn("Advanced portfolio, return & health assumptions", self.new.text)
+        self.assertIn("Derived pre-ret return", " ".join(self.new.text))
+        self.assertNotIn("16.5", self.new_html)
+
+    @unittest.skipIf(shutil.which("node") is None, "node is required for UI helper test")
+    def test_return_assumption_helpers_derive_and_warn(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const html = fs.readFileSync({str(OUT)!r}, 'utf8');
+            const match = html.match(/\\/\\* === js\\/inputs\\.js === \\*\\/[\\s\\S]*?\\/\\* === js\\/ui\\.js === \\*\\//);
+            if (!match) throw new Error('inputs bundle not found');
+            const source = match[0].replace(/\\/\\* === js\\/ui\\.js === \\*\\//, '');
+
+            const elements = new Map();
+            function makeInput(id, value = '') {{
+              const el = {{
+                id,
+                value,
+                textContent: '',
+                style: {{}},
+                disabled: false,
+                listeners: {{}},
+                addEventListener(type, fn) {{ this.listeners[type] = fn; }}
+              }};
+              elements.set(id, el);
+              return el;
+            }}
+
+            makeInput('sims', '40000');
+            makeInput('simsLabel', '');
+            makeInput('retSpendPreview', '');
+            makeInput('income', '180000');
+            makeInput('replaceRate', '70');
+            makeInput('returnPreset', 'base');
+            makeInput('stockReturn', '5.5').disabled = true;
+            makeInput('bondReturn', '1.0').disabled = true;
+            makeInput('eqPre', '0.85');
+            makeInput('eqPost', '0.6');
+            makeInput('expPre', '4.8');
+            makeInput('expPost', '3.7');
+            makeInput('returnAssumptionHint', '');
+            for (const id of ['currentAge', 'currentSavings', 'incomeGrowth', 'maxAge', 'maxRetAge', 'targetSuccess', 'healthShocks', 'ltcYears']) {{
+              makeInput(id, '0');
+            }}
+
+            const context = vm.createContext({{
+              simsInput: elements.get('sims'),
+              simsLabel: elements.get('simsLabel'),
+              document: {{ getElementById(id) {{ return elements.get(id); }} }},
+              formatMoney(value) {{ return String(Math.round(value)); }},
+              Math,
+              parseFloat,
+              isNaN
+            }});
+            vm.runInContext(source, context);
+
+            if (elements.get('expPre').value !== '4.8') throw new Error('base pre return mismatch: ' + elements.get('expPre').value);
+            if (elements.get('expPost').value !== '3.7') throw new Error('base post return mismatch: ' + elements.get('expPost').value);
+            if (!elements.get('stockReturn').disabled || !elements.get('bondReturn').disabled) throw new Error('preset fields should be disabled');
+
+            elements.get('eqPre').value = '1';
+            context.updateDerivedReturns();
+            if (elements.get('expPre').value !== '5.5') throw new Error('equity weight 1 should equal stock return');
+
+            elements.get('returnPreset').value = 'custom';
+            context.applyReturnPreset();
+            if (elements.get('stockReturn').disabled || elements.get('bondReturn').disabled) throw new Error('custom fields should be enabled');
+            elements.get('stockReturn').value = '12';
+            elements.get('bondReturn').value = '4';
+            context.updateDerivedReturns();
+            const warning = elements.get('returnAssumptionHint').textContent;
+            if (!warning.includes('Stock return assumption is high')) throw new Error('missing stock warning: ' + warning);
+            if (!warning.includes('Bond return assumption is high')) throw new Error('missing bond warning: ' + warning);
+            if (!warning.includes('Very optimistic pre-retirement return')) throw new Error('missing pre warning: ' + warning);
+            """
+        )
+
+        with tempfile.NamedTemporaryFile("w", suffix=".cjs", delete=False) as handle:
+            handle.write(script)
+            script_path = Path(handle.name)
+        try:
+            subprocess.run(["node", str(script_path)], cwd=ROOT, check=True, capture_output=True, text=True)
+        finally:
+            script_path.unlink(missing_ok=True)
 
     def test_embedded_market_data_block(self):
         blocks = [body for attrs, body in self.new.scripts if attrs.get("id") == "market-data"]

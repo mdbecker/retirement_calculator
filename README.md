@@ -95,19 +95,21 @@ After a refactor or model change:
 
 1. Run `python build.py`.
 2. Open `dist/retirement_calculator.html` directly in a browser.
-3. Confirm default inputs and layout match expectations.
+3. Confirm default inputs and layout match expectations, including the Base / Recommended return preset.
 4. Confirm the retirement spending preview updates when income or replacement rate changes.
 5. Open and close the advanced assumptions panel.
-6. Run the simulation and confirm status text changes while running.
-7. Confirm summary cards update after completion.
-8. Confirm the fan chart, success chart, distribution charts, failure-age chart, and projection table populate.
-9. Check the browser console for new errors.
+6. Switch return presets and confirm derived pre/post-retirement returns update.
+7. Switch to Custom, enter high stock/bond return assumptions, and confirm warnings appear without blocking simulation.
+8. Run the simulation and confirm status text changes while running.
+9. Confirm summary cards update after completion.
+10. Confirm the fan chart, success chart, distribution charts, failure-age chart, and projection table populate.
+11. Check the browser console for new errors.
 
 ## Known Limitations
 
 This is a planning toy, not financial advice.
 
-- Expected return inputs rescale historical returns and can dominate results.
+- Return presets derive portfolio-level expected returns from stock/bond assumptions and equity weights; the selected expectation still rescales historical return samples.
 - Historical returns are sampled independently by year.
 - Taxes, Social Security, pensions, annuities, and account buckets are not modeled.
 - Retirement spending is simplified as a percentage of income at retirement.
@@ -116,7 +118,7 @@ This is a planning toy, not financial advice.
 
 ## Future Improvements
 
-Possible later work includes return presets, fixed-dollar spending, tax/account buckets, Social Security, block bootstrap, historical replay, mortality weighting, editable health/LTC assumptions, offline Chart.js bundling, minified output, browser tests, CLI flags, or a module/bundler migration.
+Possible later work includes fixed-dollar spending, tax/account buckets, Social Security, block bootstrap, historical replay, mortality weighting, editable health/LTC assumptions, offline Chart.js bundling, minified output, browser tests, CLI flags, or a module/bundler migration.
 
 ## Disclaimer
 
