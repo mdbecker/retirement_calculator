@@ -308,6 +308,8 @@ class BuildTests(unittest.TestCase):
             elements.get('returnPreset').value = 'custom';
             context.applyReturnPreset();
             if (elements.get('stockReturn').disabled || elements.get('bondReturn').disabled) throw new Error('custom fields should be enabled');
+            if (elements.get('eqPre').value !== '1') throw new Error('preset changes should not modify pre-ret equity weight');
+            if (elements.get('eqPost').value !== '0.6') throw new Error('preset changes should not modify post-ret equity weight');
             elements.get('stockReturn').value = '12';
             elements.get('bondReturn').value = '4';
             context.updateDerivedReturns();
@@ -316,6 +318,17 @@ class BuildTests(unittest.TestCase):
             if (!warning.includes('Bond return assumption is high')) throw new Error('missing bond warning: ' + warning);
             if (!warning.includes('Extremely optimistic pre-retirement return')) throw new Error('missing pre warning: ' + warning);
             if (!warning.includes('high-upside scenario')) throw new Error('missing high-upside warning: ' + warning);
+
+            elements.get('eqPre').value = '7.5';
+            elements.get('eqPost').value = '2.0';
+            const boundedConfig = context.getConfigFromUI();
+            if (boundedConfig.eqPre !== 1) throw new Error('pre-ret equity weight should be clamped: ' + boundedConfig.eqPre);
+            if (boundedConfig.eqPost !== 1) throw new Error('post-ret equity weight should be clamped: ' + boundedConfig.eqPost);
+
+            elements.get('eqPre').listeners.blur();
+            elements.get('eqPost').listeners.blur();
+            if (elements.get('eqPre').value !== '1') throw new Error('pre-ret equity field should snap to 1: ' + elements.get('eqPre').value);
+            if (elements.get('eqPost').value !== '1') throw new Error('post-ret equity field should snap to 1: ' + elements.get('eqPost').value);
             """
         )
 
@@ -493,6 +506,59 @@ class BuildTests(unittest.TestCase):
             const fallback = context.simulateForRetAge(31, baseConfig, [], [], true);
             if (adjusted.fan.p50[0] !== 750000) throw new Error('adjusted start mismatch: ' + adjusted.fan.p50[0]);
             if (fallback.fan.p50[0] !== 1000000) throw new Error('fallback start mismatch: ' + fallback.fan.p50[0]);
+            """
+        )
+
+        with tempfile.NamedTemporaryFile("w", suffix=".cjs", delete=False) as handle:
+            handle.write(script)
+            script_path = Path(handle.name)
+        try:
+            subprocess.run(["node", str(script_path)], cwd=ROOT, check=True, capture_output=True, text=True)
+        finally:
+            script_path.unlink(missing_ok=True)
+
+    @unittest.skipIf(shutil.which("node") is None, "node is required for worker return test")
+    def test_worker_clamps_equity_weight_when_building_returns(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const html = fs.readFileSync({str(OUT)!r}, 'utf8');
+            const match = html.match(/const SIM_WORKER_SOURCE = ("[\\s\\S]*?");\\n/);
+            if (!match) throw new Error('new worker source not found');
+            const source = JSON.parse(match[1]);
+
+            const context = vm.createContext({{
+              self: {{ postMessage() {{}} }},
+              Math,
+              Number,
+              Float64Array,
+              Array,
+              Object,
+              console,
+              isFinite
+            }});
+            vm.runInContext(source, context, {{ timeout: 30000 }});
+
+            const stock = [0.10, -0.20, 0.05];
+            const bond = [0.02, 0.03, 0.01];
+            const clampedHigh = context.buildPortfolioReturns(stock, bond, 7.5, NaN);
+            const allStock = context.buildPortfolioReturns(stock, bond, 1, NaN);
+            const clampedLow = context.buildPortfolioReturns(stock, bond, -2, NaN);
+            const allBond = context.buildPortfolioReturns(stock, bond, 0, NaN);
+
+            function assertArrayClose(actual, expected, label) {{
+              if (actual.length !== expected.length) throw new Error(label + ' length mismatch');
+              for (let i = 0; i < actual.length; i++) {{
+                if (Math.abs(actual[i] - expected[i]) > 1e-12) {{
+                  throw new Error(label + '[' + i + ']: ' + actual[i] + ' !== ' + expected[i]);
+                }}
+              }}
+            }}
+
+            assertArrayClose(clampedHigh, allStock, 'high equity clamp');
+            assertArrayClose(clampedLow, allBond, 'low equity clamp');
+            if (clampedHigh.some(value => value < -1)) throw new Error('clamped high returns should not create leveraged losses below -100%');
             """
         )
 

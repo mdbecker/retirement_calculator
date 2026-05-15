@@ -167,6 +167,15 @@ function updateDerivedReturns() {
       updateReturnWarnings(pre, post, stockReturn, bondReturn);
     }
 
+function normalizeEquityWeightInput(id, def) {
+      const input = document.getElementById(id);
+      const raw = parseFloat(input.value);
+      const value = isNaN(raw) ? def : raw;
+      const bounded = clampNumber(value, 0, 1);
+      input.value = Number(bounded.toFixed(2)).toString();
+      updateDerivedReturns();
+    }
+
 function applyReturnPreset() {
       const presetKey = document.getElementById('returnPreset').value;
       const isCustom = presetKey === 'custom';
@@ -191,6 +200,8 @@ document.getElementById('stockReturn').addEventListener('input', updateDerivedRe
 document.getElementById('bondReturn').addEventListener('input', updateDerivedReturns);
 document.getElementById('eqPre').addEventListener('input', updateDerivedReturns);
 document.getElementById('eqPost').addEventListener('input', updateDerivedReturns);
+document.getElementById('eqPre').addEventListener('blur', () => normalizeEquityWeightInput('eqPre', 0.85));
+document.getElementById('eqPost').addEventListener('blur', () => normalizeEquityWeightInput('eqPost', 0.6));
 applyReturnPreset();
 
 function getConfigFromUI() {
@@ -202,6 +213,8 @@ function getConfigFromUI() {
       const maxAge     = getNum('maxAge', 110);
       const maxRetAge  = getNum('maxRetAge', 65);
       const currentSavings = Math.max(0, getNum('currentSavings', 0));
+      const eqPre = clampNumber(getNum('eqPre', 0.85), 0, 1);
+      const eqPost = clampNumber(getNum('eqPost', 0.6), 0, 1);
       const preTaxShare = clampNumber(getNum('preTaxShare', 0) / 100.0, 0, 1);
       const preTaxWithdrawalTaxRate = clampNumber(getNum('preTaxWithdrawalTaxRate', 25) / 100.0, 0, 0.60);
       const afterTaxStartFactor = computeAfterTaxStartFactor(
@@ -229,8 +242,8 @@ function getConfigFromUI() {
         sims: getNum('sims', 5000),
         targetSuccess: getNum('targetSuccess', 0.95),
         maxRetAgeCandidate: Math.min(maxRetAge, maxAge - 5),
-        eqPre: getNum('eqPre', 0.85),
-        eqPost: getNum('eqPost', 0.6),
+        eqPre,
+        eqPost,
         expPre: getNum('expPre', 4.8) / 100.0,
         expPost: getNum('expPost', 3.7) / 100.0,
         healthShocks: getNum('healthShocks', 3),

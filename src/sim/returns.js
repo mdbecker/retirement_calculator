@@ -1,9 +1,10 @@
 function buildPortfolioReturns(histStock, histBond, eqWeight, targetReturn) {
+  const eq = Math.max(0, Math.min(1, eqWeight || 0));
   const n = Math.min(histStock.length, histBond.length);
   const port = new Array(n);
   let mean = 0;
   for (let i = 0; i < n; i++) {
-    const r = eqWeight * histStock[i] + (1 - eqWeight) * histBond[i];
+    const r = eq * histStock[i] + (1 - eq) * histBond[i];
     port[i] = r;
     mean += r;
   }
