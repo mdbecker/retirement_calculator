@@ -7,6 +7,3 @@ function formatPct(x) {
   if (x == null || isNaN(x)) return '–';
   return (x * 100).toFixed(1) + '%';
 }
-
-App.formatMoney = formatMoney;
-App.formatPct = formatPct;

@@ -12,7 +12,7 @@ except ModuleNotFoundError as exc:
 ROOT = Path(__file__).parent
 SRC = ROOT / "src"
 DIST = ROOT / "dist"
-OUT = DIST / "retirement-calculator.html"
+OUT = DIST / "retirement_calculator.html"
 
 APP_JS_FILES = [
     "js/formatters.js",
@@ -49,12 +49,21 @@ def escape_inline_script(js):
     return js.replace("</script", "<\\/script")
 
 
+def html_safe_json_dumps(value):
+    return (
+        json.dumps(value, separators=(",", ":"))
+        .replace("<", "\\u003C")
+        .replace(">", "\\u003E")
+        .replace("&", "\\u0026")
+    )
+
+
 def wrap_app_js(js):
     return (
-        "(function(App) {\n"
+        "(function() {\n"
         "\"use strict\";\n"
         f"{js}\n"
-        "})(window.RetirementCalc = window.RetirementCalc || {});\n"
+        "})();\n"
     )
 
 
@@ -97,10 +106,8 @@ def main():
     html = template.render(
         app_title="Retirement Planner – Monte Carlo",
         app_css=app_css,
-        market_data_json=escape_inline_script(
-            json.dumps(market_data, separators=(",", ":"))
-        ),
-        worker_js_string=escape_inline_script(json.dumps(worker_js)),
+        market_data_json=html_safe_json_dumps(market_data),
+        worker_js_string=html_safe_json_dumps(worker_js),
         app_js=app_js,
     )
 

@@ -12,7 +12,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "dist" / "retirement-calculator.html"
+OUT = ROOT / "dist" / "retirement_calculator.html"
+ORIGINAL_FIXTURE = ROOT / "tests" / "fixtures" / "original_retirement_calculator.html"
 
 
 def load_build_module():
@@ -91,7 +92,8 @@ class BuildTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         run_build()
-        cls.old_html = (ROOT / "retirement_calculator.html").read_text(encoding="utf-8")
+        # Historical one-file implementation used only as a behavior/equivalence fixture.
+        cls.old_html = ORIGINAL_FIXTURE.read_text(encoding="utf-8")
         cls.new_html = OUT.read_text(encoding="utf-8")
         cls.old = parse_html(cls.old_html)
         cls.new = parse_html(cls.new_html)
@@ -117,6 +119,15 @@ class BuildTests(unittest.TestCase):
             with self.subTest(bad_data=bad_data):
                 with self.assertRaises(ValueError):
                     build.validate_market_data(bad_data)
+
+    def test_html_safe_json_dumps_escapes_html_sensitive_chars(self):
+        build = load_build_module()
+        dumped = build.html_safe_json_dumps({"value": "</script><div>&"})
+
+        self.assertNotIn("<", dumped)
+        self.assertNotIn(">", dumped)
+        self.assertNotIn("&", dumped)
+        self.assertEqual(json.loads(dumped), {"value": "</script><div>&"})
 
     def test_generated_html_is_single_file_app(self):
         external_urls = sorted(set(re.findall(r"https?://[^\"'<>\s]+", self.new_html)))
@@ -173,7 +184,7 @@ class BuildTests(unittest.TestCase):
             f"""
             const fs = require('fs');
             const vm = require('vm');
-            const oldHtml = fs.readFileSync({str(ROOT / 'retirement_calculator.html')!r}, 'utf8');
+            const oldHtml = fs.readFileSync({str(ORIGINAL_FIXTURE)!r}, 'utf8');
             const newHtml = fs.readFileSync({str(OUT)!r}, 'utf8');
             const market = JSON.parse(fs.readFileSync({str(ROOT / 'src' / 'data' / 'market-data.json')!r}, 'utf8'));
 

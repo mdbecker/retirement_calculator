@@ -13,7 +13,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python build.py
-open dist/retirement-calculator.html
+open dist/retirement_calculator.html
 ```
 
 ## Open The App
@@ -21,7 +21,7 @@ open dist/retirement-calculator.html
 The build writes one standalone browser file:
 
 ```text
-dist/retirement-calculator.html
+dist/retirement_calculator.html
 ```
 
 Open that file directly. No local server, npm install, bundler, or sibling runtime files are required. Chart.js and Google Fonts load from CDNs.
@@ -38,7 +38,9 @@ src/
   js/
   sim/
   data/market-data.json
-dist/retirement-calculator.html
+tests/
+  fixtures/original_retirement_calculator.html
+dist/retirement_calculator.html
 ```
 
 ## Where To Edit
@@ -50,7 +52,7 @@ dist/retirement-calculator.html
 - Worker and simulation JavaScript: `src/sim/*.js`
 - Historical market data: `src/data/market-data.json`
 
-Do not edit `dist/retirement-calculator.html` directly. It is generated and will be overwritten by `python build.py`.
+Do not edit `dist/retirement_calculator.html` directly. It is generated and will be overwritten by `python build.py`.
 
 ## Build Behavior
 
@@ -60,7 +62,7 @@ Do not edit `dist/retirement-calculator.html` directly. It is generated and will
 2. Validates `src/data/market-data.json`.
 3. Renders Jinja templates.
 4. Inlines CSS, JSON data, main JavaScript, and Blob worker source.
-5. Writes `dist/retirement-calculator.html`.
+5. Writes `dist/retirement_calculator.html`.
 
 There are no build flags or modes.
 
@@ -85,12 +87,14 @@ The tests cover:
 
 The worker equivalence test uses `node` if it is available on `PATH`; otherwise it is skipped. Browser interaction checks are intentionally left to the manual QA checklist because local `file://` and `localhost` browser automation may be blocked in some sandboxed environments.
 
+`tests/fixtures/original_retirement_calculator.html` is the historical one-file implementation used only for behavior/equivalence comparison tests. Do not edit it as the current app source.
+
 ## Manual QA Checklist
 
 After a refactor or model change:
 
 1. Run `python build.py`.
-2. Open `dist/retirement-calculator.html` directly in a browser.
+2. Open `dist/retirement_calculator.html` directly in a browser.
 3. Confirm default inputs and layout match expectations.
 4. Confirm the retirement spending preview updates when income or replacement rate changes.
 5. Open and close the advanced assumptions panel.
