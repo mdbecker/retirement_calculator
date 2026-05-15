@@ -145,17 +145,33 @@ class BuildTests(unittest.TestCase):
         self.assertIn("new Blob([SIM_WORKER_SOURCE]", self.new_html)
 
     def test_generated_html_preserves_markup_and_defaults(self):
-        old_inputs = {item[0]: item for item in self.old.inputs}
-        new_inputs = {item[0]: item for item in self.new.inputs}
+        old_input_shapes = {item[0]: item[:2] + item[3:] for item in self.old.inputs}
+        new_input_shapes = {item[0]: item[:2] + item[3:] for item in self.new.inputs}
+        new_defaults = {item[0]: item[2] for item in self.new.inputs}
+        expected_defaults = {
+            "currentAge": "30",
+            "currentSavings": "150000",
+            "income": "180000",
+            "savingsRate": "20",
+            "incomeGrowth": "1.5",
+            "replaceRate": "70",
+            "maxAge": "110",
+            "targetSuccess": "0.95",
+            "sims": "40000",
+            "maxRetAge": "65",
+            "eqPre": "0.85",
+            "eqPost": "0.6",
+            "expPre": "16.5",
+            "expPost": "6",
+            "healthShocks": "3",
+            "ltcYears": "3",
+        }
 
         self.assertEqual(self.old.text, self.new.text)
         self.assertEqual(self.old.buttons, self.new.buttons)
         self.assertEqual(sorted(self.old.canvases), sorted(self.new.canvases))
-        self.assertEqual(len(new_inputs), 16)
-        self.assertEqual(new_inputs["currentAge"][2], "30")
-
-        old_inputs["currentAge"] = new_inputs["currentAge"]
-        self.assertEqual(old_inputs, new_inputs)
+        self.assertEqual(old_input_shapes, new_input_shapes)
+        self.assertEqual(new_defaults, expected_defaults)
 
     def test_embedded_market_data_block(self):
         blocks = [body for attrs, body in self.new.scripts if attrs.get("id") == "market-data"]
