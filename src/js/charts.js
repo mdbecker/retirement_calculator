@@ -83,7 +83,7 @@ function updateFanChart(fan) {
                 grid: { color: 'rgba(30,64,175,0.25)' }
               },
               y: {
-                title: { display: true, text: 'Thousands of 2025 dollars' },
+                title: { display: true, text: 'Tax-adjusted value, thousands of 2025 dollars' },
                 grid: { color: 'rgba(30,64,175,0.3)' },
                 ticks: { callback: v => v.toLocaleString('en-US') }
               }
@@ -201,7 +201,7 @@ function updateDistributions(retireStats, finalStats, failureStats) {
             },
             scales: {
               x: {
-                title: { display: true, text: 'Wealth at retirement (thousands of 2025 $)' },
+                title: { display: true, text: 'Tax-adjusted wealth at retirement (thousands of 2025 $)' },
                 grid: { color: 'rgba(30,64,175,0.24)' }
               },
               y: {
@@ -246,7 +246,7 @@ function updateDistributions(retireStats, finalStats, failureStats) {
             },
             scales: {
               x: {
-                title: { display: true, text: 'Wealth at horizon (thousands of 2025 $)' },
+                title: { display: true, text: 'Tax-adjusted wealth at horizon (thousands of 2025 $)' },
                 grid: { color: 'rgba(30,64,175,0.24)' }
               },
               y: {

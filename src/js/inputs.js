@@ -36,6 +36,83 @@ document.getElementById('income').addEventListener('input', updateRetSpendPrevie
 document.getElementById('replaceRate').addEventListener('input', updateRetSpendPreview);
 updateRetSpendPreview();
 
+function clampNumber(value, min, max) {
+      if (value < min) return min;
+      if (value > max) return max;
+      return value;
+    }
+
+function computeAfterTaxStartFactor(preTaxShare, preTaxWithdrawalTaxRate) {
+      const share = clampNumber(preTaxShare || 0, 0, 1);
+      const rate = clampNumber(preTaxWithdrawalTaxRate || 0, 0, 0.60);
+      return 1 - share * rate;
+    }
+
+function computeAdjustedCurrentSavings(currentSavings, preTaxShare, preTaxWithdrawalTaxRate) {
+      const savings = Math.max(0, currentSavings || 0);
+      return savings * computeAfterTaxStartFactor(preTaxShare, preTaxWithdrawalTaxRate);
+    }
+
+function updateTaxAdjustmentPreview() {
+      const currentSavings = Math.max(0, parseFloat(document.getElementById('currentSavings').value) || 0);
+      const rawSharePct = parseFloat(document.getElementById('preTaxShare').value) || 0;
+      const rawRatePct = parseFloat(document.getElementById('preTaxWithdrawalTaxRate').value) || 0;
+      const preTaxShare = rawSharePct / 100.0;
+      const preTaxWithdrawalTaxRate = rawRatePct / 100.0;
+      const boundedShare = clampNumber(preTaxShare, 0, 1);
+      const boundedRate = clampNumber(preTaxWithdrawalTaxRate, 0, 0.60);
+      const adjustedCurrentSavings = computeAdjustedCurrentSavings(
+        currentSavings,
+        boundedShare,
+        boundedRate
+      );
+      const taxAdjustment = currentSavings - adjustedCurrentSavings;
+      const messages = [];
+      let hasWarning = false;
+
+      if (rawSharePct < 0 || rawSharePct > 100) {
+        messages.push('Pre-tax share must be between 0% and 100%.');
+        hasWarning = true;
+      }
+      if (rawRatePct < 0 || rawRatePct > 60) {
+        messages.push('Expected tax rate must be between 0% and 60%.');
+        hasWarning = true;
+      }
+
+      if (boundedShare === 0 && !hasWarning) {
+        messages.push('No pre-tax adjustment is being applied.');
+      } else if (boundedShare > 0.80) {
+        messages.push('Most assets are marked as pre-tax. The tax adjustment may materially reduce modeled retirement wealth.');
+        hasWarning = true;
+      }
+
+      if (boundedShare > 0) {
+        if (boundedRate === 0) {
+          messages.push('Pre-tax withdrawals are being treated as tax-free.');
+          hasWarning = true;
+        } else if (boundedRate > 0.40) {
+          messages.push('This is a high effective retirement tax rate. Confirm this is intentional.');
+          hasWarning = true;
+        }
+      }
+
+      document.getElementById('afterTaxStartPreview').textContent =
+        'Estimated after-tax starting wealth: $' + formatMoney(adjustedCurrentSavings);
+      document.getElementById('alreadyAfterTaxSharePreview').textContent =
+        'Already-after-tax share: ' + Math.round((1 - boundedShare) * 100) + '%';
+      document.getElementById('taxAdjustmentPreview').textContent =
+        'Tax adjustment: ' + (taxAdjustment > 0 ? '-$' : '$') + formatMoney(taxAdjustment);
+      document.getElementById('taxAdjustmentHint').textContent = messages.length
+        ? messages.join(' ')
+        : 'This is a simplified adjustment. The calculator does not model tax brackets, cost basis, capital gains, RMDs, Roth conversions, or contribution limits.';
+      document.getElementById('taxAdjustmentHint').style.color = hasWarning ? 'var(--bad)' : 'var(--muted)';
+    }
+
+document.getElementById('currentSavings').addEventListener('input', updateTaxAdjustmentPreview);
+document.getElementById('preTaxShare').addEventListener('input', updateTaxAdjustmentPreview);
+document.getElementById('preTaxWithdrawalTaxRate').addEventListener('input', updateTaxAdjustmentPreview);
+updateTaxAdjustmentPreview();
+
 function computeDerivedReturn(eqWeight, stockReturnPct, bondReturnPct) {
       const eq = Math.max(0, Math.min(1, eqWeight || 0));
       return eq * stockReturnPct + (1 - eq) * bondReturnPct;
@@ -124,10 +201,26 @@ function getConfigFromUI() {
       const currentAge = getNum('currentAge', 30);
       const maxAge     = getNum('maxAge', 110);
       const maxRetAge  = getNum('maxRetAge', 65);
+      const currentSavings = Math.max(0, getNum('currentSavings', 0));
+      const preTaxShare = clampNumber(getNum('preTaxShare', 0) / 100.0, 0, 1);
+      const preTaxWithdrawalTaxRate = clampNumber(getNum('preTaxWithdrawalTaxRate', 25) / 100.0, 0, 0.60);
+      const afterTaxStartFactor = computeAfterTaxStartFactor(
+        preTaxShare,
+        preTaxWithdrawalTaxRate
+      );
+      const adjustedCurrentSavings = computeAdjustedCurrentSavings(
+        currentSavings,
+        preTaxShare,
+        preTaxWithdrawalTaxRate
+      );
 
       return {
         currentAge,
-        currentSavings: getNum('currentSavings', 0),
+        currentSavings,
+        preTaxShare,
+        preTaxWithdrawalTaxRate,
+        afterTaxStartFactor,
+        adjustedCurrentSavings,
         income: getNum('income', 0),
         savingsRate: getNum('savingsRate', 0) / 100.0,
         incomeGrowth: getNum('incomeGrowth', 0) / 100.0,

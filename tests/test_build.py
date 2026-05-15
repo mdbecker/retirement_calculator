@@ -161,6 +161,8 @@ class BuildTests(unittest.TestCase):
         expected_defaults = {
             "currentAge": "30",
             "currentSavings": "150000",
+            "preTaxShare": "0",
+            "preTaxWithdrawalTaxRate": "25",
             "income": "180000",
             "savingsRate": "20",
             "incomeGrowth": "1.5",
@@ -180,7 +182,9 @@ class BuildTests(unittest.TestCase):
         }
         expected_shapes = {
             "currentAge": ("currentAge", "number", "18", "80", None, False, False),
-            "currentSavings": ("currentSavings", "number", None, None, "10000", False, False),
+            "currentSavings": ("currentSavings", "number", "0", None, "10000", False, False),
+            "preTaxShare": ("preTaxShare", "number", "0", "100", "1", False, False),
+            "preTaxWithdrawalTaxRate": ("preTaxWithdrawalTaxRate", "number", "0", "60", "0.5", False, False),
             "income": ("income", "number", None, None, "1000", False, False),
             "savingsRate": ("savingsRate", "number", None, None, "0.5", False, False),
             "incomeGrowth": ("incomeGrowth", "number", None, None, "0.1", False, False),
@@ -216,6 +220,9 @@ class BuildTests(unittest.TestCase):
             ],
         )
         self.assertIn("Advanced portfolio, return & health assumptions", self.new.text)
+        self.assertIn("Simple tax adjustment", " ".join(self.new.text))
+        self.assertIn("Estimated after-tax starting wealth:", " ".join(self.new.text))
+        self.assertIn("% of income invested", " ".join(self.new.text))
         self.assertIn("Derived pre-ret return", " ".join(self.new.text))
         self.assertNotIn('id="expPre" type="number" value="16.5"', self.new_html)
         self.assertNotIn("expPre: getNum('expPre', 16.5) / 100.0", self.new_html)
@@ -249,8 +256,16 @@ class BuildTests(unittest.TestCase):
             makeInput('sims', '40000');
             makeInput('simsLabel', '');
             makeInput('retSpendPreview', '');
+            makeInput('afterTaxStartPreview', '');
+            makeInput('alreadyAfterTaxSharePreview', '');
+            makeInput('taxAdjustmentPreview', '');
+            makeInput('taxAdjustmentHint', '');
             makeInput('income', '180000');
             makeInput('replaceRate', '70');
+            makeInput('savingsRate', '20');
+            makeInput('currentSavings', '1000000');
+            makeInput('preTaxShare', '30');
+            makeInput('preTaxWithdrawalTaxRate', '25');
             makeInput('returnPreset', 'base');
             makeInput('stockReturn', '5.5').disabled = true;
             makeInput('bondReturn', '1.0').disabled = true;
@@ -259,7 +274,7 @@ class BuildTests(unittest.TestCase):
             makeInput('expPre', '4.8');
             makeInput('expPost', '3.7');
             makeInput('returnAssumptionHint', '');
-            for (const id of ['currentAge', 'currentSavings', 'incomeGrowth', 'maxAge', 'maxRetAge', 'targetSuccess', 'healthShocks', 'ltcYears']) {{
+            for (const id of ['currentAge', 'incomeGrowth', 'maxAge', 'maxRetAge', 'targetSuccess', 'healthShocks', 'ltcYears']) {{
               makeInput(id, '0');
             }}
 
@@ -267,12 +282,20 @@ class BuildTests(unittest.TestCase):
               simsInput: elements.get('sims'),
               simsLabel: elements.get('simsLabel'),
               document: {{ getElementById(id) {{ return elements.get(id); }} }},
-              formatMoney(value) {{ return String(Math.round(value)); }},
+              formatMoney(value) {{ return Number(value).toLocaleString('en-US', {{ maximumFractionDigits: 0 }}); }},
               Math,
               parseFloat,
               isNaN
             }});
             vm.runInContext(source, context);
+
+            const taxConfig = context.getConfigFromUI();
+            if (taxConfig.preTaxShare !== 0.30) throw new Error('pre-tax share mismatch: ' + taxConfig.preTaxShare);
+            if (taxConfig.preTaxWithdrawalTaxRate !== 0.25) throw new Error('pre-tax rate mismatch: ' + taxConfig.preTaxWithdrawalTaxRate);
+            if (taxConfig.afterTaxStartFactor !== 0.925) throw new Error('after-tax factor mismatch: ' + taxConfig.afterTaxStartFactor);
+            if (taxConfig.adjustedCurrentSavings !== 925000) throw new Error('adjusted savings mismatch: ' + taxConfig.adjustedCurrentSavings);
+            if (!elements.get('afterTaxStartPreview').textContent.includes('$925,000')) throw new Error('preview mismatch: ' + elements.get('afterTaxStartPreview').textContent);
+            if (!elements.get('taxAdjustmentPreview').textContent.includes('-$75,000')) throw new Error('tax adjustment preview mismatch: ' + elements.get('taxAdjustmentPreview').textContent);
 
             if (elements.get('expPre').value !== '4.8') throw new Error('base pre return mismatch: ' + elements.get('expPre').value);
             if (elements.get('expPost').value !== '3.7') throw new Error('base post return mismatch: ' + elements.get('expPost').value);
@@ -293,6 +316,183 @@ class BuildTests(unittest.TestCase):
             if (!warning.includes('Bond return assumption is high')) throw new Error('missing bond warning: ' + warning);
             if (!warning.includes('Extremely optimistic pre-retirement return')) throw new Error('missing pre warning: ' + warning);
             if (!warning.includes('high-upside scenario')) throw new Error('missing high-upside warning: ' + warning);
+            """
+        )
+
+        with tempfile.NamedTemporaryFile("w", suffix=".cjs", delete=False) as handle:
+            handle.write(script)
+            script_path = Path(handle.name)
+        try:
+            subprocess.run(["node", str(script_path)], cwd=ROOT, check=True, capture_output=True, text=True)
+        finally:
+            script_path.unlink(missing_ok=True)
+
+    @unittest.skipIf(shutil.which("node") is None, "node is required for tax helper test")
+    def test_tax_adjustment_helpers_clamp_and_compute(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const html = fs.readFileSync({str(OUT)!r}, 'utf8');
+            const match = html.match(/\\/\\* === js\\/inputs\\.js === \\*\\/[\\s\\S]*?\\/\\* === js\\/ui\\.js === \\*\\//);
+            if (!match) throw new Error('inputs bundle not found');
+            const source = match[0].replace(/\\/\\* === js\\/ui\\.js === \\*\\//, '');
+
+            const elements = new Map();
+            function makeInput(id, value = '') {{
+              const el = {{
+                id,
+                value,
+                textContent: '',
+                style: {{}},
+                disabled: false,
+                listeners: {{}},
+                addEventListener(type, fn) {{ this.listeners[type] = fn; }}
+              }};
+              elements.set(id, el);
+              return el;
+            }}
+
+            for (const [id, value] of Object.entries({{
+              sims: '40000',
+              simsLabel: '',
+              retSpendPreview: '',
+              income: '180000',
+              replaceRate: '70',
+              currentSavings: '1000000',
+              savingsRate: '20',
+              preTaxShare: '40',
+              preTaxWithdrawalTaxRate: '30',
+              afterTaxStartPreview: '',
+              alreadyAfterTaxSharePreview: '',
+              taxAdjustmentPreview: '',
+              taxAdjustmentHint: '',
+              returnPreset: 'base',
+              stockReturn: '5.5',
+              bondReturn: '1.0',
+              eqPre: '0.85',
+              eqPost: '0.6',
+              expPre: '4.8',
+              expPost: '3.7',
+              returnAssumptionHint: '',
+              currentAge: '30',
+              incomeGrowth: '1.5',
+              maxAge: '110',
+              maxRetAge: '65',
+              targetSuccess: '0.95',
+              healthShocks: '3',
+              ltcYears: '3'
+            }})) {{
+              makeInput(id, value);
+            }}
+
+            const context = vm.createContext({{
+              simsInput: elements.get('sims'),
+              simsLabel: elements.get('simsLabel'),
+              document: {{ getElementById(id) {{ return elements.get(id); }} }},
+              formatMoney(value) {{ return Number(value).toLocaleString('en-US', {{ maximumFractionDigits: 0 }}); }},
+              Math,
+              parseFloat,
+              isNaN
+            }});
+            vm.runInContext(source, context);
+
+            function assertClose(actual, expected, label) {{
+              if (Math.abs(actual - expected) > 1e-9) throw new Error(label + ': ' + actual + ' !== ' + expected);
+            }}
+
+            assertClose(context.computeAfterTaxStartFactor(0, 0.25), 1, 'no adjustment');
+            assertClose(context.computeAdjustedCurrentSavings(1000000, 1, 0.25), 750000, 'all pre-tax');
+            assertClose(context.computeAfterTaxStartFactor(0.40, 0.30), 0.88, 'mixed factor');
+            assertClose(context.computeAdjustedCurrentSavings(1000000, 0.40, 0.20), 920000, '20% rate');
+            assertClose(context.computeAdjustedCurrentSavings(1000000, 0.40, 0.30), 880000, '30% rate');
+            assertClose(context.computeAdjustedCurrentSavings(1000000, 0.40, 0.40), 840000, '40% rate');
+            assertClose(context.computeAfterTaxStartFactor(2, 1), 0.40, 'clamped high values');
+
+            const cfg = context.getConfigFromUI();
+            assertClose(cfg.afterTaxStartFactor, 0.88, 'config factor');
+            assertClose(cfg.adjustedCurrentSavings, 880000, 'config adjusted savings');
+            if (!elements.get('taxAdjustmentPreview').textContent.includes('-$120,000')) throw new Error('mixed preview mismatch');
+
+            elements.get('preTaxShare').value = '0';
+            elements.get('preTaxWithdrawalTaxRate').value = '25';
+            context.updateTaxAdjustmentPreview();
+            if (!elements.get('taxAdjustmentHint').textContent.includes('No pre-tax adjustment is being applied.')) throw new Error('missing neutral no-adjustment message');
+            if (elements.get('taxAdjustmentHint').style.color !== 'var(--muted)') throw new Error('default no-adjustment message should be neutral');
+
+            elements.get('preTaxShare').value = '150';
+            context.updateTaxAdjustmentPreview();
+            if (!elements.get('taxAdjustmentHint').textContent.includes('Pre-tax share must be between 0% and 100%.')) throw new Error('missing share validation message');
+            if (elements.get('taxAdjustmentHint').style.color !== 'var(--bad)') throw new Error('invalid share should be a warning');
+
+            elements.get('preTaxShare').value = '40';
+            elements.get('preTaxWithdrawalTaxRate').value = '75';
+            context.updateTaxAdjustmentPreview();
+            if (!elements.get('taxAdjustmentHint').textContent.includes('Expected tax rate must be between 0% and 60%.')) throw new Error('missing rate validation message');
+            if (elements.get('taxAdjustmentHint').style.color !== 'var(--bad)') throw new Error('invalid rate should be a warning');
+            """
+        )
+
+        with tempfile.NamedTemporaryFile("w", suffix=".cjs", delete=False) as handle:
+            handle.write(script)
+            script_path = Path(handle.name)
+        try:
+            subprocess.run(["node", str(script_path)], cwd=ROOT, check=True, capture_output=True, text=True)
+        finally:
+            script_path.unlink(missing_ok=True)
+
+    @unittest.skipIf(shutil.which("node") is None, "node is required for worker tax test")
+    def test_worker_starts_from_adjusted_current_savings_when_present(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const html = fs.readFileSync({str(OUT)!r}, 'utf8');
+            const match = html.match(/const SIM_WORKER_SOURCE = ("[\\s\\S]*?");\\n/);
+            if (!match) throw new Error('new worker source not found');
+            const source = JSON.parse(match[1]);
+
+            const context = vm.createContext({{
+              self: {{ postMessage() {{}} }},
+              Math,
+              Number,
+              Float64Array,
+              Array,
+              Object,
+              console,
+              isFinite
+            }});
+            vm.runInContext(source, context, {{ timeout: 30000 }});
+
+            const baseConfig = {{
+              currentAge: 30,
+              currentSavings: 1000000,
+              income: 0,
+              savingsRate: 0,
+              incomeGrowth: 0,
+              replaceRate: 0,
+              maxAge: 31,
+              sims: 1,
+              targetSuccess: 0.95,
+              maxRetAgeCandidate: 31,
+              eqPre: 0,
+              eqPost: 0,
+              expPre: 0,
+              expPost: 0,
+              healthShocks: 0,
+              ltcYears: 0,
+              medInflation: 0
+            }};
+            const adjusted = context.simulateForRetAge(
+              31,
+              {{ ...baseConfig, adjustedCurrentSavings: 750000 }},
+              [],
+              [],
+              true
+            );
+            const fallback = context.simulateForRetAge(31, baseConfig, [], [], true);
+            if (adjusted.fan.p50[0] !== 750000) throw new Error('adjusted start mismatch: ' + adjusted.fan.p50[0]);
+            if (fallback.fan.p50[0] !== 1000000) throw new Error('fallback start mismatch: ' + fallback.fan.p50[0]);
             """
         )
 

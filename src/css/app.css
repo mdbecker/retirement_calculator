@@ -98,6 +98,36 @@ label small {
   font-size: 0.7rem;
   color: var(--muted);
 }
+.tax-adjustment-panel {
+  grid-column: 1 / -1;
+  margin: 2px 0 4px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(148,163,184,0.45);
+  background: rgba(2,6,23,0.32);
+}
+.tax-adjustment-header,
+.tax-adjustment-preview {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+.tax-adjustment-header strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.tax-adjustment-header span,
+.tax-adjustment-preview span {
+  color: var(--muted);
+}
+.tax-adjustment-grid {
+  margin-top: 8px;
+}
+.tax-adjustment-preview {
+  margin-top: 8px;
+}
 input[type="number"],
 input[type="range"],
 select {

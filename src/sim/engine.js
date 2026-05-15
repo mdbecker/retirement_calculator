@@ -53,7 +53,9 @@ function simulateForRetAge(ageRet, config, portPre, portPost, trackDetails) {
   const medInfl = config.medInflation || 0;
 
   for (let s = 0; s < sims; s++) {
-    let cap = config.currentSavings;
+    let cap = config.adjustedCurrentSavings != null
+      ? config.adjustedCurrentSavings
+      : config.currentSavings;
     let income = config.income;
 
     if (trackDetails) {

@@ -12,15 +12,45 @@
     </label>
     <label>
       <span class="title"><strong>Current retirement savings</strong><small>(2025 $)</small></span>
-      <input id="currentSavings" type="number" value="150000" step="10000" />
+      <input id="currentSavings" type="number" value="150000" min="0" step="10000" />
     </label>
+    <div class="tax-adjustment-panel">
+      <div class="tax-adjustment-header">
+        <strong>Simple tax adjustment</strong>
+        <span id="afterTaxStartPreview">Estimated after-tax starting wealth: –</span>
+      </div>
+      <p class="hint">
+        Traditional pre-tax retirement accounts are not fully spendable because withdrawals are usually taxed.
+        Roth, taxable brokerage, and cash are treated as already after-tax/spendable.
+      </p>
+      <div class="inputs-grid tax-adjustment-grid">
+        <label>
+          <span class="title"><strong>Pre-tax share of current savings</strong><small>%</small></span>
+          <input id="preTaxShare" type="number" value="0" min="0" max="100" step="1" />
+          <small>Traditional 401(k), traditional IRA, SEP IRA, 403(b), and similar tax-deferred accounts.</small>
+        </label>
+        <label>
+          <span class="title"><strong>Expected tax rate on pre-tax withdrawals</strong><small>%</small></span>
+          <input id="preTaxWithdrawalTaxRate" type="number" value="25" min="0" max="60" step="0.5" />
+          <small>Use a rough effective retirement tax rate, not your current marginal bracket.</small>
+        </label>
+      </div>
+      <div class="tax-adjustment-preview">
+        <span id="alreadyAfterTaxSharePreview">Already-after-tax share: 100%</span>
+        <span id="taxAdjustmentPreview">Tax adjustment: $0</span>
+      </div>
+      <p class="hint" id="taxAdjustmentHint">
+        This is a simplified adjustment. The calculator does not model tax brackets, cost basis, capital gains, RMDs, Roth conversions, or contribution limits.
+      </p>
+    </div>
     <label>
       <span class="title"><strong>Household income</strong><small>(2025 $ / yr)</small></span>
       <input id="income" type="number" value="180000" step="1000" />
     </label>
     <label>
-      <span class="title"><strong>Annual savings rate</strong><small>% of income</small></span>
+      <span class="title"><strong>Annual savings rate</strong><small>% of income invested</small></span>
       <input id="savingsRate" type="number" value="20" step="0.5" />
+      <small>This should represent dollars actually invested each year. The calculator does not model the different tax cost of making pre-tax vs Roth/taxable contributions.</small>
     </label>
     <label>
       <span class="title"><strong>Income growth</strong><small>% real / yr</small></span>

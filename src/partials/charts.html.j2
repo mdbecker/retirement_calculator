@@ -7,11 +7,11 @@
         <!-- FAN CHART -->
         <div class="chart-panel active" id="fanPanel">
           <div class="chart-header">
-            <span>Portfolio value by age (accumulation + decumulation)</span>
+            <span>Tax-adjusted portfolio value by age (accumulation + decumulation)</span>
             <span>Shaded bands: 5–95% and 25–75% percentiles.</span>
           </div>
           <canvas id="fanChart"></canvas>
-          <div class="small-label">Values in thousands of 2025 dollars; starting at your current age and current savings.</div>
+          <div class="small-label">Values are tax-adjusted 2025 dollars; starting at your current age and estimated after-tax starting wealth.</div>
         </div>
 
         <!-- SUCCESS VS AGE -->
@@ -28,16 +28,16 @@
         <div class="chart-panel" id="distPanel">
           <div class="chart-header">
             <span>Wealth distributions</span>
-            <span>Retirement and planning-horizon wealth across all simulations.</span>
+            <span>Tax-adjusted retirement and planning-horizon wealth across all simulations.</span>
           </div>
           <div class="dual-charts">
             <div>
               <canvas id="retWealthChart"></canvas>
-              <div class="small-label">Distribution of wealth at the chosen retirement age.</div>
+              <div class="small-label">Distribution of tax-adjusted wealth at the chosen retirement age.</div>
             </div>
             <div>
               <canvas id="finalWealthChart"></canvas>
-              <div class="small-label">Distribution of wealth at the end of the planning horizon.</div>
+              <div class="small-label">Distribution of tax-adjusted wealth at the end of the planning horizon.</div>
             </div>
           </div>
           <div style="margin-top:10px;">
