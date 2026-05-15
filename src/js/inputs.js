@@ -43,7 +43,8 @@ function computeDerivedReturn(eqWeight, stockReturnPct, bondReturnPct) {
 
 function getReturnPresetLabel() {
       const presetKey = document.getElementById('returnPreset').value;
-      return presetKey === 'custom' ? 'Custom' : RETURN_PRESETS[presetKey].label;
+      if (presetKey === 'custom') return 'Custom';
+      return RETURN_PRESETS[presetKey] ? RETURN_PRESETS[presetKey].label : 'Unknown';
     }
 
 function updateReturnWarnings(pre, post, stockReturn, bondReturn) {
@@ -57,9 +58,9 @@ function updateReturnWarnings(pre, post, stockReturn, bondReturn) {
         warnings.push('Bond return assumption is high for a real forward-looking return.');
       }
       if (pre > 10) {
-        warnings.push('Very optimistic pre-retirement return. Suitable for upside scenario only.');
+        warnings.push('Extremely optimistic pre-retirement return. This can materially pull retirement age earlier. Use only as a high-upside scenario, not a planning baseline.');
       } else if (pre > 8) {
-        warnings.push('Very optimistic pre-retirement return. This can materially pull retirement age earlier. Treat as an upside scenario, not a planning baseline.');
+        warnings.push('Very optimistic pre-retirement return. Treat as an upside scenario, not a planning baseline.');
       }
       if (post > 5.5) {
         warnings.push('Derived post-retirement return is aggressive for retirement planning.');

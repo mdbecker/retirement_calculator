@@ -217,7 +217,8 @@ class BuildTests(unittest.TestCase):
         )
         self.assertIn("Advanced portfolio, return & health assumptions", self.new.text)
         self.assertIn("Derived pre-ret return", " ".join(self.new.text))
-        self.assertNotIn("16.5", self.new_html)
+        self.assertNotIn('id="expPre" type="number" value="16.5"', self.new_html)
+        self.assertNotIn("expPre: getNum('expPre', 16.5) / 100.0", self.new_html)
 
     @unittest.skipIf(shutil.which("node") is None, "node is required for UI helper test")
     def test_return_assumption_helpers_derive_and_warn(self):
@@ -290,7 +291,8 @@ class BuildTests(unittest.TestCase):
             const warning = elements.get('returnAssumptionHint').textContent;
             if (!warning.includes('Stock return assumption is high')) throw new Error('missing stock warning: ' + warning);
             if (!warning.includes('Bond return assumption is high')) throw new Error('missing bond warning: ' + warning);
-            if (!warning.includes('Very optimistic pre-retirement return')) throw new Error('missing pre warning: ' + warning);
+            if (!warning.includes('Extremely optimistic pre-retirement return')) throw new Error('missing pre warning: ' + warning);
+            if (!warning.includes('high-upside scenario')) throw new Error('missing high-upside warning: ' + warning);
             """
         )
 
